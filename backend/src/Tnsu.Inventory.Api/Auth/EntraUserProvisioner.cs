@@ -61,7 +61,7 @@ public sealed class EntraUserProvisioner(
             };
             db.Users.Add(user);
             await db.SaveChangesAsync(context.HttpContext.RequestAborted);
-            logger.LogInformation("Auto-provisioned Entra user {Email} for development.", user.Email);
+            logger.LogInformation("Создан пользователь Entra {Email}.", user.Email);
         }
 
         if (user is null)

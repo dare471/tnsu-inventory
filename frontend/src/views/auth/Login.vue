@@ -17,7 +17,6 @@ const msg = useMessage();
 const devEmail = ref('mechanic@tansu.local');
 const error = ref<string | null>(null);
 const submitting = ref(false);
-const isDev = import.meta.env.DEV;
 
 const pageSubtitle = computed(() =>
   entraAuthEnabled
@@ -88,18 +87,15 @@ async function devLogin() {
         <template v-if="showDevLogin">
           <div :style="{ marginTop: entraAuthEnabled ? '24px' : '0' }">
             <NForm @submit.prevent="devLogin">
-              <NFormItem label="Email (dev)">
-                <NInput v-model:value="devEmail" placeholder="mechanic@tansu.local" size="large">
+              <NFormItem label="Email">
+                <NInput v-model:value="devEmail" placeholder="email@company.local" size="large">
                   <template #prefix><NIcon :component="MailOutline" /></template>
                 </NInput>
               </NFormItem>
               <NButton block size="large" :type="entraAuthEnabled ? 'default' : 'primary'" :loading="submitting" @click="devLogin">
-                Войти (локально, только dev)
+                Войти
               </NButton>
             </NForm>
-            <p style="margin:12px 0 0;font-size:12px;color:var(--brand-text-muted)">
-              Демо-механик: mechanic@tansu.local · согласование: onglassyn.dauren@tnsukz.onmicrosoft.com (Entra)
-            </p>
           </div>
         </template>
       </div>

@@ -10,7 +10,6 @@ export const entraAuthEnabled = !!(clientId && tenantId && apiScope);
 
 const configuredRedirectUri = (import.meta.env.VITE_ENTRA_REDIRECT_URI ?? '').trim();
 
-/** Azure AD не принимает fragment (#) в redirect URI — только путь без hash. */
 export function getEntraRedirectUri(): string {
   if (configuredRedirectUri) return configuredRedirectUri;
   return `${window.location.origin}/login`;

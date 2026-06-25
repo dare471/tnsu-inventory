@@ -5,9 +5,8 @@ public static class DemoSeedData
     public const string DaurenEmail = "onglassyn.dauren@tnsukz.onmicrosoft.com";
     public const string DaurenFullName = "Дәурен Оңласын";
 
-    /// <summary>Механик для локального dev-входа (без корпоративной Entra-учётки).</summary>
     public const string MechanicEmail = "mechanic@tansu.local";
-    public const string MechanicFullName = "Механик участка (локальный dev)";
+    public const string MechanicFullName = "Механик участка";
 
     public const string SeedDefectActNumber = "DA-DEMO-00001";
     public const string SeedPurchaseDraftNumber = "PR-DEMO-00001";

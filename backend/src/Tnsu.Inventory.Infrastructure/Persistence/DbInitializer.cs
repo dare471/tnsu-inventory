@@ -119,7 +119,7 @@ public static class DbInitializer
         var omtsHead = new AppUser
         {
             Email = "omts.head@tansu.local",
-            FullName = "Руководитель ОМТС (демо)",
+            FullName = "Руководитель ОМТС",
             Role = MechanizationRole.OmtsHead,
             EntraObjectId = "demo-omts-head"
         };
@@ -137,7 +137,7 @@ public static class DbInitializer
         var storekeeper = new AppUser
         {
             Email = "storekeeper@tansu.local",
-            FullName = "Кладовщик проекта (демо)",
+            FullName = "Кладовщик проекта",
             Role = MechanizationRole.ProjectStorekeeper,
             EntraObjectId = "demo-storekeeper",
             ManagerUserId = dauren.Id
@@ -145,7 +145,7 @@ public static class DbInitializer
         var security = new AppUser
         {
             Email = "security@tansu.local",
-            FullName = "СБ (демо)",
+            FullName = "СБ",
             Role = MechanizationRole.Security,
             EntraObjectId = "demo-security",
             ManagerUserId = dauren.Id
@@ -153,7 +153,7 @@ public static class DbInitializer
         var pm = new AppUser
         {
             Email = "pm@tansu.local",
-            FullName = "РП участка (демо)",
+            FullName = "РП участка",
             Role = MechanizationRole.ProjectManager,
             EntraObjectId = "demo-pm",
             ManagerUserId = dauren.Id
@@ -161,7 +161,7 @@ public static class DbInitializer
         var coordinator = new AppUser
         {
             Email = "warehouse@tansu.local",
-            FullName = "Координатор СХ (демо)",
+            FullName = "Координатор СХ",
             Role = MechanizationRole.WarehouseCoordinator,
             EntraObjectId = "demo-coordinator",
             ManagerUserId = dauren.Id
@@ -169,7 +169,7 @@ public static class DbInitializer
         var omtsSpec = new AppUser
         {
             Email = "omts@tansu.local",
-            FullName = "Специалист ОМТС (демо)",
+            FullName = "Специалист ОМТС",
             Role = MechanizationRole.OmtsSpecialist,
             EntraObjectId = "demo-omts-spec",
             ManagerUserId = omtsHead.Id

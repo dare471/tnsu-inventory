@@ -10,7 +10,7 @@ const router = useRouter();
   <NSpace vertical :size="16">
     <NCard :title="`Направление «${appBrand.moduleTitle}»`">
       <p style="margin:0 0 16px;color:var(--brand-text-muted)">
-        Цифровизация заявок на закупку запасных частей, расходных материалов и услуг для парка техники.
+        Заявки на закупку запасных частей, расходных материалов и услуг для парка техники.
       </p>
       <NSpace>
         <NButton type="primary" @click="router.push({ name: 'defect-act-new' })">Создать дефектный акт</NButton>

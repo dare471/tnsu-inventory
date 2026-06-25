@@ -1,7 +1,10 @@
-# Локальные dev-сертификаты (копия из tansu/frontend/certs)
 frontend/certs/
 
-# Секреты и локальная конфигурация
 .env
 .env.local
 *.user
+
+frontend/node_modules/
+**/bin/
+**/obj/
+.DS_Store

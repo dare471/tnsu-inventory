@@ -144,7 +144,7 @@ public sealed class HttpDictionary1CClient(
             return [(T)(object)new NomenclatureApiRow { Id = Guid.NewGuid().ToString(), Code = "НМ-0001", Name = "Масло моторное 15W-40", Unit = "л" }];
 
         if (typeof(T) == typeof(ContractorApiRow))
-            return [(T)(object)new ContractorApiRow { Id = Guid.NewGuid().ToString(), Code = "К-001", Name = "ТОО Поставщик демо", Inn = "123456789012" }];
+            return [(T)(object)new ContractorApiRow { Id = Guid.NewGuid().ToString(), Code = "К-001", Name = "ТОО Поставщик", Inn = "123456789012" }];
 
         return [];
     }

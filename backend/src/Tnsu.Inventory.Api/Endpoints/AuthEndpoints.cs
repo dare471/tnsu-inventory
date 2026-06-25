@@ -36,8 +36,7 @@ public static class AuthEndpoints
                     user.Role,
                     MechanizationRole.Label(user.Role)));
             })
-            .AllowAnonymous()
-            .WithSummary("Локальный вход по email (только Development).");
+            .AllowAnonymous();
         }
 
         group.MapGet("/me", async (ICurrentUser currentUser, InventoryDbContext db, CancellationToken ct) =>
@@ -57,8 +56,7 @@ public static class AuthEndpoints
                 user.Role,
                 MechanizationRole.Label(user.Role)));
         })
-        .RequireAuthorization()
-        .WithSummary("Текущий пользователь.");
+        .RequireAuthorization();
 
         return app;
     }
