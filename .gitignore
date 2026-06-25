@@ -1,0 +1,7 @@
+# Локальные dev-сертификаты (копия из tansu/frontend/certs)
+frontend/certs/
+
+# Секреты и локальная конфигурация
+.env
+.env.local
+*.user

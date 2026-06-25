@@ -1,0 +1,21 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "a8f3c2e1-4b5d-6e7f-8a9b-0c1d2e3f4a5b",
+  "alias": "MechanizationWebPart",
+  "componentType": "WebPart",
+  "version": "0.1.0",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "TeamsPersonalApp", "TeamsTab", "SharePointFullPage"],
+  "preconfiguredEntries": [{
+    "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+    "group": { "default": "Advanced" },
+    "title": { "default": "Механизация — закупки" },
+    "description": { "default": "Дефектные акты и заявки на закупку ТМЦ по направлению Механизация" },
+    "officeFabricIconFontName": "Repair",
+    "properties": {
+      "apiBaseUrl": "https://inventory-api.tansu.local",
+      "description": "Механизация"
+    }
+  }]
+}

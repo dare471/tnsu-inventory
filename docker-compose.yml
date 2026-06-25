@@ -1,0 +1,99 @@
+name: tnsu-inventory
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tnsu-inventory-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tnsu_inventory}
+      POSTGRES_USER: ${POSTGRES_USER:-tnsu_inventory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tnsu_inventory}
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - inventory-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tnsu_inventory} -d ${POSTGRES_DB:-tnsu_inventory}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: tnsu-inventory-mailhog
+    restart: unless-stopped
+    ports:
+      - "${SMTP_PORT:-1027}:1025"
+      - "${MAILHOG_UI_PORT:-8027}:8025"
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: src/Tnsu.Inventory.Api/Dockerfile
+    container_name: tnsu-inventory-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-tnsu_inventory};Username=${POSTGRES_USER:-tnsu_inventory};Password=${POSTGRES_PASSWORD:-tnsu_inventory}"
+      DevAuth__Email: ${DEV_AUTH_EMAIL:-mechanic@tansu.local}
+      Entra__TenantId: ${ENTRA_TENANT_ID:-}
+      Entra__Audience: ${ENTRA_AUDIENCE:-}
+      Dictionary1C__BaseUrl: ${DICTIONARY_BASE_URL:-https://api.tnsu.kz}
+      Dictionary1C__TenantId: ${ZUP_TENANT_ID:-}
+      Dictionary1C__ClientId: ${ZUP_CLIENT_ID:-}
+      Dictionary1C__ClientSecret: ${ZUP_CLIENT_SECRET:-}
+      Dictionary1C__Scope: ${ZUP_SCOPE:-}
+      App__SharePointSiteUrl: ${SHAREPOINT_SITE_URL:-https://tnsukz.sharepoint.com/sites/kps}
+      App__FrontendBaseUrl: ${FRONTEND_BASE_URL:-https://localhost:5173}
+      App__AttachmentStoragePath: /var/lib/tnsu-inventory/attachments
+      SharePoint__Enabled: ${SHAREPOINT_ENABLED:-false}
+      SharePoint__SiteUrl: ${SHAREPOINT_SITE_URL:-https://tnsukz.sharepoint.com/sites/kps}
+      SharePoint__TenantId: ${SHAREPOINT_TENANT_ID:-}
+      SharePoint__ClientId: ${SHAREPOINT_CLIENT_ID:-}
+      SharePoint__ClientSecret: ${SHAREPOINT_CLIENT_SECRET:-}
+      Teams__WebhookUrl: ${TEAMS_WEBHOOK_URL:-}
+      Procurement__BaseUrl: ${PROCUREMENT_BASE_URL:-}
+      Smtp__Host: mailhog
+      Smtp__Port: 1025
+    ports:
+      - "${API_PORT:-8081}:8080"
+    volumes:
+      - inventory-attachments:/var/lib/tnsu-inventory/attachments
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_ENTRA_CLIENT_ID: ${VITE_ENTRA_CLIENT_ID:-}
+        VITE_ENTRA_TENANT_ID: ${VITE_ENTRA_TENANT_ID:-${ENTRA_TENANT_ID:-}}
+        VITE_ENTRA_AUDIENCE: ${VITE_ENTRA_AUDIENCE:-${ENTRA_AUDIENCE:-}}
+        VITE_ENTRA_API_SCOPE: ${VITE_ENTRA_API_SCOPE:-}
+        VITE_ENTRA_REDIRECT_URI: ${VITE_ENTRA_REDIRECT_URI:-https://localhost:5173/login}
+        VITE_APP_BRAND_NAME: ${APP_BRAND_NAME:-Tansu}
+        VITE_APP_COMPANY_NAME: ${APP_COMPANY_NAME:-ТАНСУ}
+        VITE_SHOW_DEV_LOGIN: ${VITE_SHOW_DEV_LOGIN:-true}
+    container_name: tnsu-inventory-frontend
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-5173}:443"
+    volumes:
+      - ./frontend/certs:/etc/nginx/certs:ro
+
+volumes:
+  inventory-postgres-data:
+  inventory-attachments:

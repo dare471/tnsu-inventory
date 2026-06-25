@@ -1,0 +1,1 @@
+{"root":["./src/env.d.ts","./src/main.ts","./src/router.ts","./src/api/client.ts","./src/app.vue","./src/views/defectactformview.vue","./src/views/defectactsview.vue","./src/views/homeview.vue","./src/views/inboxview.vue","./src/views/purchaserequestdetailview.vue","./src/views/purchaserequestsview.vue"],"errors":true,"version":"5.7.3"}
