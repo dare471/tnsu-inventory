@@ -126,8 +126,17 @@ public sealed class SubmitDefectActHandler(IInventoryDbContext db, ICurrentUser 
         if (hasPending)
             throw new ConflictException("approval_in_progress", "Документ уже на согласовании.");
 
+        var startFrom = act.Status == WorkflowStatus.Returned && act.ResumeFromReturnStep
+            ? act.ResubmitFromStepOrder
+            : 1;
+
         var roundId = Guid.NewGuid();
-        var steps = await Workflow.ApprovalWorkflowBuilder.BuildDefectActStepsAsync(db, act, roundId, ct);
+        var steps = await Workflow.ApprovalWorkflowBuilder.BuildDefectActStepsAsync(
+            db, act, roundId, startFrom, ct);
+
+        if (steps.Count == 0)
+            throw new ValidationFailedException("Нет шагов согласования для запуска маршрута.");
+
         act.Status = WorkflowStatus.OnCoordination;
         act.UpdatedAt = DateTimeOffset.UtcNow;
         db.ApprovalSteps.AddRange(steps);

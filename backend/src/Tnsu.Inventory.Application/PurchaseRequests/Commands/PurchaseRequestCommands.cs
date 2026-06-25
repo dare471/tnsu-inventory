@@ -166,7 +166,8 @@ public sealed class SubmitPurchaseRequestHandler(IInventoryDbContext db, ICurren
             var defectSteps = await db.ApprovalSteps
                 .Where(s => s.DefectActId == defectActId)
                 .ToListAsync(ct);
-            skipRoles = ApprovalWorkflowBuilder.CollectApprovedRoles(defectSteps);
+            var latestRound = ApprovalWorkflowBuilder.LatestRoundSteps(defectSteps);
+            skipRoles = ApprovalWorkflowBuilder.CollectApprovedRoles(latestRound);
         }
 
         var startFrom = request.Status == WorkflowStatus.Returned && request.ResumeFromReturnStep
@@ -178,9 +179,13 @@ public sealed class SubmitPurchaseRequestHandler(IInventoryDbContext db, ICurren
             db, request, roundId, skipRoles, startFrom, ct);
 
         if (!steps.Any(s => s.Status == ApprovalStepStatus.Pending))
-            throw new ValidationFailedException("Нет шагов согласования для запуска маршрута.");
-
-        request.Status = WorkflowStatus.OnCoordination;
+        {
+            request.Status = WorkflowStatus.Approved;
+        }
+        else
+        {
+            request.Status = ApprovalWorkflowBuilder.ResolveDocumentStatus(steps, request.Status);
+        }
         request.UpdatedAt = DateTimeOffset.UtcNow;
         db.ApprovalSteps.AddRange(steps);
         await db.SaveChangesAsync(ct);

@@ -13,26 +13,43 @@ public static class ApprovalWorkflowBuilder
         IInventoryDbContext db,
         DefectAct act,
         Guid roundId,
+        int startFromOrder,
         CancellationToken ct)
     {
         var approvers = await ResolveRoleApproversAsync(
             db, MechanizationRole.PurchaseApprovalRoles, ct);
 
+        var steps = new List<ApprovalStep>();
+        var order = 1;
         var now = DateTimeOffset.UtcNow;
-        return MechanizationRole.PurchaseApprovalRoles
-            .Select((role, index) => new ApprovalStep
+        var firstPendingAssigned = false;
+
+        foreach (var role in MechanizationRole.PurchaseApprovalRoles)
+        {
+            if (order < startFromOrder)
+            {
+                order++;
+                continue;
+            }
+
+            var isFirst = !firstPendingAssigned;
+            if (isFirst) firstPendingAssigned = true;
+
+            steps.Add(new ApprovalStep
             {
                 RoundId = roundId,
                 DocumentType = DocumentTypes.DefectAct,
                 DefectActId = act.Id,
-                OrderNo = index + 1,
+                OrderNo = order++,
                 ApproverRole = role,
                 ApproverUserId = approvers[role].Id,
                 Status = ApprovalStepStatus.Pending,
                 RequiresDigitalSignature = role == MechanizationRole.ChiefMechanic,
-                AssignedAt = index == 0 ? now : null
-            })
-            .ToList();
+                AssignedAt = isFirst ? now : null
+            });
+        }
+
+        return steps;
     }
 
     public static async Task<List<ApprovalStep>> BuildPurchaseRequestStepsAsync(
@@ -161,4 +178,13 @@ public static class ApprovalWorkflowBuilder
             .Where(s => s.Status is ApprovalStepStatus.Approved or ApprovalStepStatus.Skipped)
             .Select(s => s.ApproverRole)
             .ToHashSet();
+
+    public static IReadOnlyList<ApprovalStep> LatestRoundSteps(IEnumerable<ApprovalStep> steps)
+    {
+        var list = steps.ToList();
+        if (list.Count == 0) return list;
+
+        var latestRoundId = list.MaxBy(s => s.DecidedAt ?? s.AssignedAt ?? DateTimeOffset.MinValue)!.RoundId;
+        return list.Where(s => s.RoundId == latestRoundId).OrderBy(s => s.OrderNo).ToList();
+    }
 }
