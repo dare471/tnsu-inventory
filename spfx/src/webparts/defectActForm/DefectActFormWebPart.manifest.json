@@ -1,0 +1,23 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "6d83786e-2536-473f-b952-8dc5a956a0bc",
+  "alias": "DefectActFormWebPart",
+  "componentType": "WebPart",
+  "version": "0.2.0",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "TeamsPersonalApp", "TeamsTab", "SharePointFullPage"],
+  "preconfiguredEntries": [{
+    "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+    "group": { "default": "Advanced" },
+    "title": { "default": "Механизация — дефектный акт" },
+    "description": { "default": "Создание и редактирование дефектного акта" },
+    "officeFabricIconFontName": "Repair",
+    "properties": {
+      "apiBaseUrl": "",
+      "apiAudience": "",
+      "documentId": "",
+      "description": "Дефектный акт"
+    }
+  }]
+}

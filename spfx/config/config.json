@@ -1,0 +1,36 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "mechanization-lists-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/mechanizationLists/MechanizationListsWebPart.js",
+          "manifest": "./src/webparts/mechanizationLists/MechanizationListsWebPart.manifest.json"
+        }
+      ]
+    },
+    "defect-act-form-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/defectActForm/DefectActFormWebPart.js",
+          "manifest": "./src/webparts/defectActForm/DefectActFormWebPart.manifest.json"
+        }
+      ]
+    },
+    "purchase-request-form-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/purchaseRequestForm/PurchaseRequestFormWebPart.js",
+          "manifest": "./src/webparts/purchaseRequestForm/PurchaseRequestFormWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "MechanizationListsWebPartStrings": "lib/webparts/mechanizationLists/loc/{locale}.js",
+    "DefectActFormWebPartStrings": "lib/webparts/defectActForm/loc/{locale}.js",
+    "PurchaseRequestFormWebPartStrings": "lib/webparts/purchaseRequestForm/loc/{locale}.js"
+  }
+}

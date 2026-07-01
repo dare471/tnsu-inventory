@@ -2,40 +2,6 @@
 
 Автоматизация дефектных актов и заявок на закупку по направлению «Механизация».
 
-> **Статус:** первая фаза по ТЗ завершена, требует проверки от заказчика.
-
-## Фаза 1 — реализовано
-
-| Область | Статус |
-|---------|--------|
-| Дефектный акт (CRUD, согласование, печать) | ✓ |
-| Заявка на закупку (из акта, согласование, пропуск ролей) | ✓ |
-| Маршрут согласования (5 ролей, ЭЦП главного механика) | ✓ |
-| Лимит 500 000 ₸ + вложение СТ | ✓ |
-| SLA 1 раб. день (напоминание, эскалация) | ✓ |
-| Входящие согласования (inbox) | ✓ |
-| Авторизация Entra ID + dev-вход | ✓ |
-| Справочники 1С (с резервными данными) | ✓ |
-| Docker-окружение, демо-пользователи и документы | ✓ |
-| SPFx-веб-часть (обёртка Vue) | ✓ |
-| API ОМТС (назначение, в работу, закрытие, заказ поставщику) | ✓ backend |
-
-## На проверку заказчиком
-
-- Полный сценарий: дефектный акт → согласование → заявка → согласование → ОМТС
-- Печатная форма дефектного акта (шаблон 152)
-- Пропуск уже согласовавших ролей при повторном маршруте заявки
-- Возврат на доработку с продолжением с шага возврата
-- Блокировка отправки заявки свыше 500 000 ₸ без СТ
-
-## Ограничения (фаза 2)
-
-- UI ОМТС (назначение исполнителя, в работу, закрытие) — только API
-- Ввод ЭЦП при согласовании главным механиком — только API
-- Отклонение документа из inbox — только API
-- Редактирование заявки на закупку — только через API
-- SharePoint-вложения и заказ поставщику — требуют настройки интеграций
-
 ## Стек
 
 | Компонент | Технология |
@@ -61,7 +27,6 @@
 
 ### Регламент
 
-- Лимит **500 000 ₸** — без СТ отправка на согласование блокируется
 - SLA **1 рабочий день** — напоминание и эскалация
 - Возврат на доработку — маршрут продолжается с шага возврата
 - Удаление запрещено — только статус «Отменена»
@@ -118,8 +83,6 @@ dotnet run --project src/Tnsu.Inventory.Api
 | omts.head@tansu.local | Руководитель ОМТС |
 | omts@tansu.local | Специалист ОМТС |
 
-Сид-документы: `DA-DEMO-00001`, `PR-DEMO-00001` (черновик), `PR-DEMO-00002` (на согласовании).
-
 ### Frontend
 
 ```bash
@@ -131,17 +94,43 @@ npm run dev
 
 HTTPS при наличии `frontend/certs/localhost.pem`.
 
-### SPFx
+### SharePoint (KPS)
 
-```bash
-cd frontend && npm run build
-cd spfx
-npm install
-gulp bundle --ship
-gulp package-solution --ship
+UI встраивается через SPFx на портал KPS. Авторизация — сессия SharePoint (Entra ID), данные — PostgreSQL через backend API.
+
+```
+SharePoint KPS (SPFx)
+        │  Bearer token
+        ▼
+Backend API (.NET, Entra ID, HTTPS)
+        ▼
+PostgreSQL
 ```
 
-Разверните `.sppkg` в App Catalog, добавьте веб-часть на сайт KPS.
+**Веб-части:**
+
+| Веб-часть | Назначение |
+|-----------|------------|
+| Механизация — списки | Дефектные акты, заявки, входящие |
+| Механизация — дефектный акт | Форма акта |
+| Механизация — заявка | Форма заявки, печать |
+
+**Сборка `.sppkg` (Node 22):**
+
+```bash
+cd frontend && npm run build:embed
+cd ../spfx && npm install --legacy-peer-deps && npm run package-solution
+```
+
+Пакет: `spfx/sharepoint/solution/tnsu-inventory-mechanization.sppkg`
+
+**Свойства веб-части на странице:**
+
+| Свойство | Описание |
+|----------|----------|
+| URL API | Публичный адрес backend |
+| Entra audience | `api://{client-id}` |
+| ID документа | GUID (для форм; пусто — новый акт) |
 
 ## API
 
@@ -160,7 +149,8 @@ gulp package-solution --ship
 | GET | `/api/dictionaries/work-types` | Виды работ |
 | GET | `/api/dictionaries/nomenclature` | Номенклатура |
 | GET | `/api/dictionaries/contractors` | Контрагенты |
-| GET | `/api/defect-acts/{id}/print` | Печатная форма |
+| GET | `/api/defect-acts/{id}/print` | Печать дефектного акта |
+| GET | `/api/purchase-requests/{id}/print` | Печать заявки |
 | POST | `/api/purchase-requests/{id}/attachments` | Вложение |
 | POST | `/api/purchase-requests/{id}/supplier-order` | Заказ поставщику |
 
@@ -177,9 +167,9 @@ tnsu-Inventory/
 
 ## Интеграции
 
-**Печатная форма** — `GET /api/defect-acts/{id}/print`, HTML по шаблону 152.
+**Печатные формы** — `GET /api/defect-acts/{id}/print`, `GET /api/purchase-requests/{id}/print`.
 
-**Вложения СТ** — `POST /api/purchase-requests/{id}/attachments`, SharePoint при `SharePoint:Enabled=true`.
+**Вложения** — `POST /api/purchase-requests/{id}/attachments`, SharePoint при `SharePoint:Enabled=true`.
 
 **Teams** — SLA-уведомления при `Teams:WebhookUrl`.
 

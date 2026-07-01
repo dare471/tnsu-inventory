@@ -25,17 +25,9 @@ const loading = ref(true);
 const lineColumns: DataTableColumns<PurchaseRequestDto['lines'][number]> = [
   { title: '#', key: 'lineNo', width: 50 },
   { title: 'Наименование', key: 'name' },
+  { title: 'Кат. №', key: 'catalogNumber', render: (r) => r.catalogNumber ?? '—' },
   { title: 'Кол-во', key: 'quantity' },
-  {
-    title: 'Цена',
-    key: 'estimatedUnitPrice',
-    render: (r) => r.estimatedUnitPrice?.toLocaleString('ru-RU') ?? '—'
-  },
-  {
-    title: 'Сумма',
-    key: 'estimatedAmount',
-    render: (r) => r.estimatedAmount?.toLocaleString('ru-RU') ?? '—'
-  }
+  { title: 'Ед.', key: 'unit', render: (r) => r.unit ?? '—' }
 ];
 
 const attachmentColumns: DataTableColumns<AttachmentDto> = [
@@ -43,11 +35,6 @@ const attachmentColumns: DataTableColumns<AttachmentDto> = [
     title: 'Файл',
     key: 'fileName',
     render: (r) => h('a', { href: `/api/attachments/${r.id}`, target: '_blank' }, r.fileName)
-  },
-  {
-    title: 'Тип',
-    key: 'category',
-    render: (r) => (r.category === 'service_note' ? 'СТ' : 'Общее')
   },
   {
     title: 'Размер',
@@ -94,11 +81,11 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
-async function uploadFiles(options: { file: UploadFileInfo }, category: string) {
+async function uploadFiles(options: { file: UploadFileInfo }) {
   const raw = options.file.file;
   if (!raw) return;
   try {
-    await inventoryApi.uploadAttachment(route.params.id as string, raw, category);
+    await inventoryApi.uploadAttachment(route.params.id as string, raw, 'general');
     await load();
     message.value = 'Файл загружен';
     msg.success('Файл загружен');
@@ -130,6 +117,10 @@ async function createOrder() {
     msg.error(error.value);
   }
 }
+
+function printRequest() {
+  inventoryApi.printPurchaseRequest(route.params.id as string);
+}
 </script>
 
 <template>
@@ -143,15 +134,8 @@ async function createOrder() {
         <div><strong>Проект:</strong> {{ request.projectName }}</div>
         <div><strong>Техника:</strong> {{ request.vehicleName }} ({{ request.stateNumber }})</div>
         <div><strong>VIN:</strong> {{ request.vinCode || '—' }}</div>
-        <div><strong>Сумма:</strong> {{ request.estimatedAmount.toLocaleString('ru-RU') }} ₸</div>
         <div v-if="request.defectActNumber"><strong>Дефектный акт:</strong> {{ request.defectActNumber }}</div>
         <div><strong>Инициатор:</strong> {{ request.createdByFullName }}</div>
-        <div v-if="request.estimatedAmount > 500000">
-          <strong>СТ:</strong>
-          <NTag :type="request.hasServiceNoteAttachment ? 'success' : 'error'">
-            {{ request.hasServiceNoteAttachment ? 'Прикреплена' : 'Требуется (сумма > 500 000 ₸)' }}
-          </NTag>
-        </div>
       </div>
 
       <p style="margin:0">{{ request.description }}</p>
@@ -163,11 +147,8 @@ async function createOrder() {
       <div>
         <h3 style="margin:0 0 12px">Вложения</h3>
         <NSpace v-if="request.canEdit" style="margin-bottom:12px">
-          <NUpload :show-file-list="false" @change="(o) => uploadFiles(o, 'service_note')">
-            <NButton secondary>Прикрепить СТ</NButton>
-          </NUpload>
-          <NUpload :show-file-list="false" @change="(o) => uploadFiles(o, 'general')">
-            <NButton secondary>Другое вложение</NButton>
+          <NUpload :show-file-list="false" @change="uploadFiles">
+            <NButton secondary>Добавить вложение</NButton>
           </NUpload>
         </NSpace>
         <div v-if="attachments.length" class="t-table-wrap">
@@ -178,6 +159,7 @@ async function createOrder() {
 
       <NSpace>
         <NButton v-if="request.canSubmit" type="primary" @click="submit">Отправить на согласование</NButton>
+        <NButton secondary @click="printRequest">Печать</NButton>
         <NButton v-if="request.status === 'in_progress'" type="primary" @click="createOrder">
           Сформировать заказ поставщику
         </NButton>

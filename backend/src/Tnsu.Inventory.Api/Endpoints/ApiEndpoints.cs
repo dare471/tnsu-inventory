@@ -70,6 +70,11 @@ public static class ApiEndpoints
         });
         purchases.MapGet("/{id:guid}", async (Guid id, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new GetPurchaseRequestQuery(id), ct)));
+        purchases.MapGet("/{id:guid}/print", async (Guid id, IMediator m, CancellationToken ct) =>
+        {
+            var html = await m.Send(new GetPurchaseRequestPrintQuery(id), ct);
+            return Results.Content(html, "text/html; charset=utf-8");
+        });
         purchases.MapPut("/{id:guid}", async (Guid id, [FromBody] UpdatePurchaseRequestRequest body, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new UpdatePurchaseRequestCommand(id, body), ct)));
         purchases.MapPost("/{id:guid}/submit", async (Guid id, IMediator m, CancellationToken ct) =>

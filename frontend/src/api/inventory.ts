@@ -1,4 +1,4 @@
-import { apiClient } from '@/api/client';
+import { apiClient, openPrintDocument } from '@/api/client';
 
 export const inventoryApi = {
   getProjects: () => apiClient.get<ProjectDto[]>('/api/dictionaries/projects').then((r) => r.data),
@@ -37,7 +37,8 @@ export const inventoryApi = {
     apiClient.get<ApprovalStepDto[]>(`/api/defect-acts/${id}/approvals`).then((r) => r.data),
   getPurchaseApprovals: (id: string) =>
     apiClient.get<ApprovalStepDto[]>(`/api/purchase-requests/${id}/approvals`).then((r) => r.data),
-  printDefectAct: (id: string) => window.open(`/api/defect-acts/${id}/print`, '_blank'),
+  printDefectAct: (id: string) => openPrintDocument(`/api/defect-acts/${id}/print`),
+  printPurchaseRequest: (id: string) => openPrintDocument(`/api/purchase-requests/${id}/print`),
   getProjectSections: (projectId: string) =>
     apiClient.get<ProjectSectionDto[]>(`/api/dictionaries/project-sections?projectId=${projectId}`).then((r) => r.data),
   getWorkTypes: () => apiClient.get<WorkTypeDto[]>('/api/dictionaries/work-types').then((r) => r.data),
@@ -114,7 +115,7 @@ export interface PurchaseRequestDto extends PurchaseRequestListItem {
   stateNumber: string; vinCode: string; vehicleYear?: number;
   description: string; hasServiceNoteAttachment: boolean;
   createdByFullName: string; assignedExecutorFullName?: string;
-  lines: Array<{ id: string; lineNo: number; name: string; quantity: number; estimatedUnitPrice?: number; estimatedAmount?: number }>;
+  lines: Array<{ id: string; lineNo: number; name: string; catalogNumber?: string; quantity: number; unit?: string; estimatedUnitPrice?: number; estimatedAmount?: number }>;
   canEdit: boolean; canSubmit: boolean; canCancel: boolean;
 }
 export interface InboxItem {

@@ -23,11 +23,6 @@ const columns: DataTableColumns<PurchaseRequestListItem> = [
   { title: 'Проект', key: 'projectName' },
   { title: 'Техника', key: 'vehicleName' },
   {
-    title: 'Сумма, ₸',
-    key: 'estimatedAmount',
-    render: (row) => row.estimatedAmount.toLocaleString('ru-RU')
-  },
-  {
     title: 'Дата',
     key: 'createdAt',
     render: (row) => new Date(row.createdAt).toLocaleString('ru-RU')

@@ -8,16 +8,27 @@ import {
 } from '@vicons/ionicons5';
 import { useAuthStore } from '@/stores/auth';
 import { appBrand } from '@/config/branding';
+import { getEmbedOptions, isEmbedMode } from '@/embed/options';
 
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
+const embed = getEmbedOptions();
+const spfxMode = isEmbedMode();
 
 const SIDEBAR_COLLAPSED_KEY = 'inventory.sidebar.collapsed';
 const sidebarCollapsed = ref(false);
 
-onMounted(() => {
+onMounted(async () => {
   sidebarCollapsed.value = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+
+  if (spfxMode && !auth.user) {
+    try {
+      await auth.fetchMe();
+    } catch {
+      // SharePoint token / mapping handled on backend
+    }
+  }
 });
 
 watch(sidebarCollapsed, (value) => {
@@ -34,12 +45,19 @@ type NavItem = {
   icon: Component;
 };
 
-const items: NavItem[] = [
+const allItems: NavItem[] = [
   { name: 'home', label: 'Главная', icon: HomeOutline },
   { name: 'defect-acts', label: 'Дефектные акты', icon: DocumentTextOutline },
   { name: 'purchase-requests', label: 'Заявки на закупку', icon: CartOutline },
   { name: 'inbox', label: 'Входящие согласования', icon: MailUnreadOutline }
 ];
+
+const items = computed(() => {
+  if (!embed) return allItems;
+  if (embed.mode === 'lists') return allItems.filter((i) => i.name !== 'home');
+  if (embed.mode === 'defect-act-form') return allItems.filter((i) => i.name === 'defect-acts');
+  return allItems.filter((i) => i.name === 'purchase-requests');
+});
 
 const activeName = computed(() => route.name?.toString() ?? '');
 
@@ -47,9 +65,11 @@ function go(item: NavItem) {
   router.push({ name: item.name });
 }
 
-const userDropdown = [
-  { label: 'Выйти', key: 'logout', icon: () => h(NIcon, null, () => h(LogOutOutline)) }
-];
+const userDropdown = computed(() =>
+  spfxMode
+    ? []
+    : [{ label: 'Выйти', key: 'logout', icon: () => h(NIcon, null, () => h(LogOutOutline)) }]
+);
 
 function onUserAction(key: string) {
   if (key === 'logout') {
@@ -129,7 +149,7 @@ const userInitials = computed(() => {
         </div>
         <div style="flex:1"></div>
 
-        <NDropdown trigger="click" :options="userDropdown" @select="onUserAction">
+        <NDropdown v-if="userDropdown.length" trigger="click" :options="userDropdown" @select="onUserAction">
           <div class="t-topbar__user">
             <NAvatar round :size="36" :style="{ background: 'var(--brand-orange)', color:'#fff', fontWeight:700 }">
               {{ userInitials }}
@@ -141,6 +161,15 @@ const userInitials = computed(() => {
             <NIcon :component="ChevronDownOutline" size="16" style="color:var(--brand-text-muted)" />
           </div>
         </NDropdown>
+        <div v-else class="t-topbar__user">
+          <NAvatar round :size="36" :style="{ background: 'var(--brand-orange)', color:'#fff', fontWeight:700 }">
+            {{ userInitials }}
+          </NAvatar>
+          <div>
+            <div class="t-topbar__user-name">{{ auth.user?.fullName ?? '—' }}</div>
+            <div class="t-topbar__user-role">{{ auth.roleLabel }}</div>
+          </div>
+        </div>
       </header>
 
       <main style="flex:1;overflow:auto;padding:24px;background:var(--brand-bg)">

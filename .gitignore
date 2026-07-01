@@ -5,6 +5,15 @@ frontend/certs/
 *.user
 
 frontend/node_modules/
+spfx/node_modules/
+spfx/lib/
+spfx/lib-commonjs/
+spfx/dist/
+spfx/release/
+spfx/temp/
+spfx/.heft/
+spfx/sharepoint/solution/
+spfx/**/*.sppkg
 **/bin/
 **/obj/
 .DS_Store

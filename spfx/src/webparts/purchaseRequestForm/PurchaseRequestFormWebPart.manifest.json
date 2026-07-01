@@ -1,0 +1,23 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "45c23b2a-9986-45b6-bb4b-917d648d7527",
+  "alias": "PurchaseRequestFormWebPart",
+  "componentType": "WebPart",
+  "version": "0.2.0",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "TeamsPersonalApp", "TeamsTab", "SharePointFullPage"],
+  "preconfiguredEntries": [{
+    "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+    "group": { "default": "Advanced" },
+    "title": { "default": "Механизация — заявка на закупку" },
+    "description": { "default": "Просмотр и согласование заявки на закупку ТМЦ" },
+    "officeFabricIconFontName": "ShoppingCart",
+    "properties": {
+      "apiBaseUrl": "",
+      "apiAudience": "",
+      "documentId": "",
+      "description": "Заявка"
+    }
+  }]
+}

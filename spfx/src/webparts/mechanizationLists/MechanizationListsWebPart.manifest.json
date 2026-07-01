@@ -1,0 +1,22 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "1bcde896-6e5d-44de-a44e-4ff230bbdc37",
+  "alias": "MechanizationListsWebPart",
+  "componentType": "WebPart",
+  "version": "0.2.0",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "TeamsPersonalApp", "TeamsTab", "SharePointFullPage"],
+  "preconfiguredEntries": [{
+    "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+    "group": { "default": "Advanced" },
+    "title": { "default": "Механизация — списки" },
+    "description": { "default": "Дефектные акты, заявки на закупку, входящие согласования" },
+    "officeFabricIconFontName": "BulletedList",
+    "properties": {
+      "apiBaseUrl": "",
+      "apiAudience": "",
+      "description": "Списки"
+    }
+  }]
+}

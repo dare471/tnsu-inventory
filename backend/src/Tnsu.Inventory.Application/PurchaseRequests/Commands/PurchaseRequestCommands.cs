@@ -4,7 +4,6 @@ using Tnsu.Inventory.Application.Common.Exceptions;
 using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Application.DefectActs.Commands;
 using Tnsu.Inventory.Application.Workflow;
-using Tnsu.Inventory.Domain;
 using Tnsu.Inventory.Domain.Entities;
 using Tnsu.Inventory.Domain.Enums;
 
@@ -144,16 +143,6 @@ public sealed class SubmitPurchaseRequestHandler(IInventoryDbContext db, ICurren
 
         if (request.Lines.Count == 0)
             throw new ValidationFailedException("Добавьте хотя бы одну позицию.");
-
-        if (request.EstimatedAmount > BusinessRules.PurchaseLimitKzt)
-        {
-            var hasSt = await db.Attachments.AnyAsync(
-                a => a.PurchaseRequestId == request.Id &&
-                     a.Category == AttachmentCategories.ServiceNote, ct);
-            if (!hasSt)
-                throw new ValidationFailedException(BusinessRules.LimitExceededMessage);
-            request.HasServiceNoteAttachment = true;
-        }
 
         var hasPending = await db.ApprovalSteps.AnyAsync(
             s => s.PurchaseRequestId == request.Id && s.Status == ApprovalStepStatus.Pending, ct);

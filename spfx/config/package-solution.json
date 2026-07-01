@@ -1,21 +1,40 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
-  "id": "a8f3c2e1-4b5d-6e7f-8a9b-0c1d2e3f4a5b",
-  "alias": "MechanizationWebPart",
-  "componentType": "WebPart",
-  "version": "0.1.0",
-  "manifestVersion": 2,
-  "requiresCustomScript": false,
-  "supportedHosts": ["SharePointWebPart", "TeamsPersonalApp", "TeamsTab", "SharePointFullPage"],
-  "preconfiguredEntries": [{
-    "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
-    "group": { "default": "Advanced" },
-    "title": { "default": "Механизация — закупки" },
-    "description": { "default": "Дефектные акты и заявки на закупку ТМЦ по направлению Механизация" },
-    "officeFabricIconFontName": "Repair",
-    "properties": {
-      "apiBaseUrl": "https://inventory-api.tansu.local",
-      "description": "Механизация"
-    }
-  }]
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "tnsu-inventory-mechanization-client-side-solution",
+    "id": "6cb3b42c-1845-47a3-9511-c46b2c3d59ef",
+    "version": "0.2.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "TNSU",
+      "websiteUrl": "https://tnsukz.sharepoint.com",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.22.1"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "Механизация — дефектные акты и заявки на закупку ТМЦ"
+      },
+      "longDescription": {
+        "default": "Веб-части для сайта KPS: списки, форма дефектного акта, форма заявки на закупку."
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "Механизация",
+        "description": "Веб-части модуля механизации",
+        "id": "9d1b4f1c-9b7f-4a27-b7db-3c2d33e39acf",
+        "version": "0.2.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/tnsu-inventory-mechanization.sppkg"
+  }
 }
