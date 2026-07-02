@@ -12,22 +12,20 @@ export default class PurchaseRequestFormWebPart extends MechanizationBaseWebPart
   }
 
   protected getEmbedOptions(): EmbedOptions {
-    return {
-      mode: 'purchase-request-form',
-      documentId: this.properties.documentId?.trim() || undefined
-    };
+    return { mode: 'purchase-request-form' };
   }
 
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
     return {
       pages: [{
-        header: { description: 'Форма заявки на закупку' },
+        header: {
+          description: 'Форма заявки. ID заявки — из URL: ?documentId={guid} (или ?id=, ?requestId=).'
+        },
         groups: [{
           groupName: 'Backend',
           groupFields: [
             PropertyPaneTextField('apiBaseUrl', { label: 'URL API (.NET)' }),
             PropertyPaneTextField('apiAudience', { label: 'Entra audience (api://...)' }),
-            PropertyPaneTextField('documentId', { label: 'ID заявки' }),
             PropertyPaneTextField('description', { label: 'Описание' })
           ]
         }]
