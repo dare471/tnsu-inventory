@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch, type Component } from 'vue';
 import { useRouter, useRoute, RouterView } from 'vue-router';
-import { NIcon, NAvatar, NDropdown, NTooltip } from 'naive-ui';
+import { NIcon, NAvatar, NDropdown, NTooltip, NAlert } from 'naive-ui';
 import {
   HomeOutline, DocumentTextOutline, CartOutline, MailUnreadOutline,
   LogOutOutline, ChevronDownOutline, ChevronBackOutline, ChevronForwardOutline
@@ -9,12 +9,14 @@ import {
 import { useAuthStore } from '@/stores/auth';
 import { appBrand } from '@/config/branding';
 import { getEmbedOptions, isEmbedMode } from '@/embed/options';
+import { toApiError } from '@/api/client';
 
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 const embed = getEmbedOptions();
 const spfxMode = isEmbedMode();
+const authError = ref('');
 
 const SIDEBAR_COLLAPSED_KEY = 'inventory.sidebar.collapsed';
 const sidebarCollapsed = ref(false);
@@ -25,8 +27,8 @@ onMounted(async () => {
   if (spfxMode && !auth.user) {
     try {
       await auth.fetchMe();
-    } catch {
-      // SharePoint token / mapping handled on backend
+    } catch (e) {
+      authError.value = toApiError(e).detail || 'Не удалось авторизоваться через SharePoint';
     }
   }
 });
@@ -173,6 +175,7 @@ const userInitials = computed(() => {
       </header>
 
       <main style="flex:1;overflow:auto;padding:24px;background:var(--brand-bg)">
+        <NAlert v-if="authError" type="error" style="margin-bottom:16px">{{ authError }}</NAlert>
         <RouterView />
       </main>
     </div>

@@ -20,7 +20,7 @@ let embedModule: EmbedModule | undefined;
 
 async function loadEmbedModule(): Promise<EmbedModule> {
   if (!embedModule) {
-    embedModule = await import('../../lib/frontend/mechanization-mount.js') as EmbedModule;
+    embedModule = await import('../../lib/frontend/mechanization-mount.js');
   }
   return embedModule;
 }
@@ -31,5 +31,8 @@ export async function mountMechanizationEmbed(
   getToken?: () => Promise<string | null>
 ): Promise<MountedApp> {
   const mod = await loadEmbedModule();
-  return mod.mountMechanizationEmbed(el, options, getToken);
+  const app = await mod.mountMechanizationEmbed(el, options, getToken);
+  return {
+    unmount: () => app.unmount()
+  };
 }

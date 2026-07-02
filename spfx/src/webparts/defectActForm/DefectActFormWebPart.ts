@@ -1,5 +1,5 @@
 import { PropertyPaneTextField, type IPropertyPaneConfiguration } from '@microsoft/sp-property-pane';
-import { mountMechanizationEmbed } from '../../shared/mechanization-embed';
+import type { EmbedOptions } from '../../shared/mechanization-embed';
 import { MechanizationBaseWebPart, type MechanizationWebPartProps } from '../../shared/MechanizationBaseWebPart';
 
 export interface IDefectActFormWebPartProps extends MechanizationWebPartProps {
@@ -7,20 +7,15 @@ export interface IDefectActFormWebPartProps extends MechanizationWebPartProps {
 }
 
 export default class DefectActFormWebPart extends MechanizationBaseWebPart<IDefectActFormWebPartProps> {
-  private _app: Awaited<ReturnType<typeof mountMechanizationEmbed>> | undefined;
-
-  public async render(): Promise<void> {
-    const root = this.mountRoot('mechanization-defect-act');
-    this._app?.unmount();
-    this._app = await mountMechanizationEmbed(
-      root,
-      { mode: 'defect-act-form', documentId: this.properties.documentId?.trim() || undefined },
-      this.getToken
-    );
+  protected getContainerId(): string {
+    return 'mechanization-defect-act';
   }
 
-  protected onDispose(): void {
-    this._app?.unmount();
+  protected getEmbedOptions(): EmbedOptions {
+    return {
+      mode: 'defect-act-form',
+      documentId: this.properties.documentId?.trim() || undefined
+    };
   }
 
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {

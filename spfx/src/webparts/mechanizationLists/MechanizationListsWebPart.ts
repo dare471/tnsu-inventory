@@ -1,5 +1,5 @@
 import { PropertyPaneTextField, type IPropertyPaneConfiguration } from '@microsoft/sp-property-pane';
-import { mountMechanizationEmbed } from '../../shared/mechanization-embed';
+import type { EmbedOptions } from '../../shared/mechanization-embed';
 import { MechanizationBaseWebPart, type MechanizationWebPartProps } from '../../shared/MechanizationBaseWebPart';
 
 export interface IMechanizationListsWebPartProps extends MechanizationWebPartProps {
@@ -7,20 +7,12 @@ export interface IMechanizationListsWebPartProps extends MechanizationWebPartPro
 }
 
 export default class MechanizationListsWebPart extends MechanizationBaseWebPart<IMechanizationListsWebPartProps> {
-  private _app: Awaited<ReturnType<typeof mountMechanizationEmbed>> | undefined;
-
-  public async render(): Promise<void> {
-    const root = this.mountRoot('mechanization-lists');
-    this._app?.unmount();
-    this._app = await mountMechanizationEmbed(
-      root,
-      { mode: 'lists' },
-      this.getToken
-    );
+  protected getContainerId(): string {
+    return 'mechanization-lists';
   }
 
-  protected onDispose(): void {
-    this._app?.unmount();
+  protected getEmbedOptions(): EmbedOptions {
+    return { mode: 'lists' };
   }
 
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {

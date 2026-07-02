@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router';
 import { getEmbedOptions, type EmbedMode } from './options';
 
 const listRoutes: RouteRecordRaw[] = [
@@ -43,7 +43,8 @@ export function createEmbedRouter() {
   if (!embed) throw new Error('Embed options not configured');
 
   const router = createRouter({
-    history: createWebHistory('/'),
+    // Hash mode: SharePoint page URL must not be rewritten (e.g. /sites/kps/...).
+    history: createWebHashHistory(),
     routes: routesForMode(embed.mode, embed.documentId)
   });
 
