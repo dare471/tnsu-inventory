@@ -23,6 +23,7 @@ export async function mountMechanizationEmbed(
   const app = createApp(AppRoot);
   app.use(createPinia());
   app.use(router);
+  await router.isReady();
   app.mount(el);
   return app;
 }

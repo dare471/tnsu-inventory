@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router';
+import { createRouter, createMemoryHistory, type RouteRecordRaw } from 'vue-router';
 import { getEmbedOptions, type EmbedMode } from './options';
 
 const listRoutes: RouteRecordRaw[] = [
@@ -23,7 +23,9 @@ function routesForMode(mode: EmbedMode, documentId?: string): RouteRecordRaw[] {
         component: shell,
         children: [{
           path: '',
-          redirect: documentId ? `/defect-acts/${documentId}` : '/defect-acts/new'
+          redirect: documentId
+            ? { name: 'defect-act-detail', params: { id: documentId } }
+            : { name: 'defect-act-new' }
         }, ...listRoutes.filter((r) => r.path?.toString().startsWith('defect-acts'))]
       }];
     case 'purchase-request-form':
@@ -32,10 +34,22 @@ function routesForMode(mode: EmbedMode, documentId?: string): RouteRecordRaw[] {
         component: shell,
         children: [{
           path: '',
-          redirect: documentId ? `/purchase-requests/${documentId}` : '/purchase-requests'
+          redirect: documentId
+            ? { name: 'purchase-request-detail', params: { id: documentId } }
+            : { name: 'purchase-requests' }
         }, ...listRoutes.filter((r) => r.path?.toString().startsWith('purchase-requests'))]
       }];
   }
+}
+
+function initialRouteName(embed: NonNullable<ReturnType<typeof getEmbedOptions>>) {
+  if (embed.mode === 'lists') {
+    return embed.initialList ?? 'defect-acts';
+  }
+  if (embed.mode === 'defect-act-form') {
+    return embed.documentId ? 'defect-act-detail' : 'defect-act-new';
+  }
+  return embed.documentId ? 'purchase-request-detail' : 'purchase-requests';
 }
 
 export function createEmbedRouter() {
@@ -43,14 +57,17 @@ export function createEmbedRouter() {
   if (!embed) throw new Error('Embed options not configured');
 
   const router = createRouter({
-    // Hash mode: SharePoint page URL must not be rewritten (e.g. /sites/kps/...).
-    history: createWebHashHistory(),
+    // Memory history: SharePoint page URL must not affect in-app routing.
+    history: createMemoryHistory(),
     routes: routesForMode(embed.mode, embed.documentId)
   });
 
-  if (embed.initialList && embed.mode === 'lists') {
-    void router.isReady().then(() => router.replace({ name: embed.initialList! }));
-  }
+  const initialName = initialRouteName(embed);
+  const initialParams = embed.documentId && initialName.includes('detail')
+    ? { id: embed.documentId }
+    : undefined;
+
+  void router.replace({ name: initialName, params: initialParams });
 
   return router;
 }
