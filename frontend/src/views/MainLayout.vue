@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch, type Component } from 'vue';
 import { useRouter, useRoute, RouterView } from 'vue-router';
-import { NIcon, NAvatar, NDropdown, NTooltip, NAlert } from 'naive-ui';
+import { NIcon, NAvatar, NDropdown, NTooltip, NAlert, NButton, NSpace } from 'naive-ui';
 import {
   HomeOutline, DocumentTextOutline, CartOutline, MailUnreadOutline,
   LogOutOutline, ChevronDownOutline, ChevronBackOutline, ChevronForwardOutline
@@ -87,8 +87,8 @@ const userInitials = computed(() => {
 </script>
 
 <template>
-  <div class="t-app-shell">
-    <aside class="t-sidebar" :class="{ 't-sidebar--collapsed': sidebarCollapsed }">
+  <div class="t-app-shell" :class="{ 't-app-shell--embed': spfxMode }">
+    <aside v-if="!spfxMode" class="t-sidebar" :class="{ 't-sidebar--collapsed': sidebarCollapsed }">
       <div class="t-sidebar__brand">
         <div class="t-sidebar__logo">{{ appBrand.logoLetter }}</div>
         <div class="t-sidebar__brand-text">
@@ -140,7 +140,7 @@ const userInitials = computed(() => {
     </aside>
 
     <div class="t-app-main">
-      <header class="t-topbar">
+      <header v-if="!spfxMode" class="t-topbar">
         <div style="display:flex;align-items:center;gap:10px;min-width:200px">
           <span style="color:var(--brand-orange);font-weight:800;font-size:18px;letter-spacing:0.5px">
             {{ appBrand.brandName.toUpperCase() }}
@@ -174,10 +174,49 @@ const userInitials = computed(() => {
         </div>
       </header>
 
-      <main style="flex:1;overflow:auto;padding:24px;background:var(--brand-bg)">
+      <main class="t-app-content">
         <NAlert v-if="authError" type="error" style="margin-bottom:16px">{{ authError }}</NAlert>
+
+        <NSpace
+          v-if="spfxMode && embed?.mode === 'lists'"
+          :size="8"
+          style="margin-bottom:16px"
+          wrap
+        >
+          <NButton
+            v-for="item in items"
+            :key="item.name"
+            :type="activeName === item.name ? 'primary' : 'default'"
+            :secondary="activeName !== item.name"
+            @click="go(item)"
+          >
+            <template #icon>
+              <NIcon :component="item.icon" />
+            </template>
+            {{ item.label }}
+          </NButton>
+        </NSpace>
+
         <RouterView />
       </main>
     </div>
   </div>
 </template>
+
+<style scoped>
+.t-app-content {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 20px 24px;
+  background: var(--brand-bg);
+}
+
+.t-app-shell--embed {
+  height: auto;
+  min-height: 0;
+}
+
+.t-app-shell--embed .t-app-main {
+  min-height: 0;
+}
+</style>
