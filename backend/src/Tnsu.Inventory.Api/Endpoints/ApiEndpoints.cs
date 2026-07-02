@@ -1,5 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Application.Approvals.Commands;
 using Tnsu.Inventory.Application.Attachments;
 using Tnsu.Inventory.Application.DefectActs;
@@ -9,6 +11,8 @@ using Tnsu.Inventory.Application.Procurement;
 using Tnsu.Inventory.Application.PurchaseRequests;
 using Tnsu.Inventory.Application.PurchaseRequests.Commands;
 using Tnsu.Inventory.Domain;
+using Tnsu.Inventory.Domain.Enums;
+using Tnsu.Inventory.Infrastructure.Persistence;
 
 namespace Tnsu.Inventory.Api.Endpoints;
 
@@ -137,8 +141,194 @@ public static class ApiEndpoints
             return Results.NoContent();
         });
 
+        var admin = api.MapGroup("/admin");
+        admin.MapGet("/users", async (ICurrentUser current, InventoryDbContext db, CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+
+            var users = await db.Users
+                .AsNoTracking()
+                .OrderBy(u => u.FullName)
+                .Select(u => new AdminUserDto(
+                    u.Id,
+                    u.Email,
+                    u.FullName,
+                    u.Role,
+                    MechanizationRole.Label(u.Role),
+                    u.IsActive))
+                .ToListAsync(ct);
+
+            return Results.Ok(users);
+        });
+
+        admin.MapPost("/users", async (
+            ICurrentUser current,
+            CreateAdminUserRequest body,
+            InventoryDbContext db,
+            CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+
+            var email = body.Email.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+                return Results.BadRequest(new { message = "Некорректный email." });
+
+            if (string.IsNullOrWhiteSpace(body.FullName))
+                return Results.BadRequest(new { message = "Укажите ФИО пользователя." });
+
+            if (!MechanizationRole.All.Contains(body.Role))
+                return Results.BadRequest(new { message = "Неизвестная роль." });
+
+            var exists = await db.Users.AnyAsync(u => u.Email.ToLower() == email, ct);
+            if (exists)
+                return Results.Conflict(new { message = "Пользователь с таким email уже существует." });
+
+            var user = new Tnsu.Inventory.Domain.Entities.AppUser
+            {
+                Email = email,
+                FullName = body.FullName.Trim(),
+                Role = body.Role,
+                IsActive = body.IsActive
+            };
+
+            db.Users.Add(user);
+            await db.SaveChangesAsync(ct);
+
+            return Results.Created($"/api/admin/users/{user.Id}", new AdminUserDto(
+                user.Id,
+                user.Email,
+                user.FullName,
+                user.Role,
+                MechanizationRole.Label(user.Role),
+                user.IsActive));
+        });
+
+        admin.MapPut("/users/{id:guid}", async (
+            Guid id,
+            ICurrentUser current,
+            UpdateAdminUserRequest body,
+            InventoryDbContext db,
+            CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+
+            if (!MechanizationRole.All.Contains(body.Role))
+                return Results.BadRequest(new { message = "Неизвестная роль." });
+
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id, ct);
+            if (user is null) return Results.NotFound();
+
+            user.FullName = body.FullName.Trim();
+            user.Role = body.Role;
+            user.IsActive = body.IsActive;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new AdminUserDto(
+                user.Id,
+                user.Email,
+                user.FullName,
+                user.Role,
+                MechanizationRole.Label(user.Role),
+                user.IsActive));
+        });
+
+        admin.MapGet("/approval-route", async (ICurrentUser current, InventoryDbContext db, CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+
+            var users = await db.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive)
+                .OrderBy(u => u.FullName)
+                .Select(u => new AdminUserOptionDto(u.Id, u.FullName, u.Email, u.Role, MechanizationRole.Label(u.Role)))
+                .ToListAsync(ct);
+
+            var assignments = new List<ApprovalRouteAssignmentDto>();
+            foreach (var role in MechanizationRole.PurchaseApprovalRoles)
+            {
+                var assigned = users.FirstOrDefault(u => u.Role == role);
+                assignments.Add(new ApprovalRouteAssignmentDto(
+                    role,
+                    MechanizationRole.Label(role),
+                    assigned?.Id));
+            }
+
+            return Results.Ok(new ApprovalRouteDto(assignments, users));
+        });
+
+        admin.MapPut("/approval-route", async (
+            ICurrentUser current,
+            UpdateApprovalRouteRequest body,
+            InventoryDbContext db,
+            CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+            if (body.Assignments is null || body.Assignments.Count == 0)
+                return Results.BadRequest(new { message = "Маршрут не передан." });
+
+            var allowedRoles = MechanizationRole.PurchaseApprovalRoles.ToHashSet();
+            var duplicatedRole = body.Assignments
+                .GroupBy(a => a.Role)
+                .FirstOrDefault(g => g.Count() > 1);
+            if (duplicatedRole is not null)
+                return Results.BadRequest(new { message = $"Роль «{MechanizationRole.Label(duplicatedRole.Key)}» задана несколько раз." });
+
+            if (body.Assignments.Any(a => !allowedRoles.Contains(a.Role)))
+                return Results.BadRequest(new { message = "В маршруте есть неподдерживаемая роль." });
+
+            var selectedUserIds = body.Assignments.Select(a => a.UserId).ToList();
+            if (selectedUserIds.Count != selectedUserIds.Distinct().Count())
+                return Results.BadRequest(new { message = "Один и тот же пользователь не может быть назначен на несколько шагов маршрута." });
+
+            var selectedUsers = await db.Users
+                .Where(u => selectedUserIds.Contains(u.Id) && u.IsActive)
+                .ToListAsync(ct);
+
+            if (selectedUsers.Count != selectedUserIds.Count)
+                return Results.BadRequest(new { message = "Часть выбранных пользователей не найдена или неактивна." });
+
+            var selectedById = selectedUsers.ToDictionary(u => u.Id);
+
+            var currentRouteUsers = await db.Users
+                .Where(u => u.IsActive && allowedRoles.Contains(u.Role))
+                .ToListAsync(ct);
+
+            foreach (var user in currentRouteUsers)
+            {
+                if (!selectedUserIds.Contains(user.Id))
+                    user.Role = MechanizationRole.SiteMechanic;
+            }
+
+            foreach (var assignment in body.Assignments)
+            {
+                selectedById[assignment.UserId].Role = assignment.Role;
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+
         return app;
     }
+
+    private static bool IsAdminRole(string? role) =>
+        role is MechanizationRole.ChiefMechanic or MechanizationRole.OmtsHead;
 }
 
 public sealed record CancelRequest(string Comment);
+public sealed record AdminUserDto(
+    Guid Id,
+    string Email,
+    string FullName,
+    string Role,
+    string RoleLabel,
+    bool IsActive);
+public sealed record CreateAdminUserRequest(string Email, string FullName, string Role, bool IsActive);
+public sealed record UpdateAdminUserRequest(string FullName, string Role, bool IsActive);
+public sealed record AdminUserOptionDto(Guid Id, string FullName, string Email, string Role, string RoleLabel);
+public sealed record ApprovalRouteAssignmentDto(string Role, string RoleLabel, Guid? UserId);
+public sealed record ApprovalRouteDto(
+    IReadOnlyList<ApprovalRouteAssignmentDto> Assignments,
+    IReadOnlyList<AdminUserOptionDto> Users);
+public sealed record UpdateApprovalRouteAssignmentRequest(string Role, Guid UserId);
+public sealed record UpdateApprovalRouteRequest(IReadOnlyList<UpdateApprovalRouteAssignmentRequest> Assignments);

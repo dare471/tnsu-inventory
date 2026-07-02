@@ -74,7 +74,8 @@ dotnet run --project src/Tnsu.Inventory.Api
 
 | Email | Роль |
 |-------|------|
-| onglassyn.dauren@tnsukz.onmicrosoft.com | Главный механик |
+| onglassyn.dauren@tnsukz.onmicrosoft.com | Главный механик (админ) |
+| m.trishina@kgnt.kz | Механик участка |
 | mechanic@tansu.local | Механик участка |
 | storekeeper@tansu.local | Кладовщик проекта |
 | security@tansu.local | СБ |

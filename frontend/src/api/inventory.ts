@@ -64,7 +64,15 @@ export const inventoryApi = {
   createSupplierOrder: (purchaseId: string) =>
     apiClient.post<SupplierOrderDto>(`/api/purchase-requests/${purchaseId}/supplier-order`).then((r) => r.data),
   getSupplierOrder: (purchaseId: string) =>
-    apiClient.get<SupplierOrderDto | null>(`/api/purchase-requests/${purchaseId}/supplier-order`).then((r) => r.data)
+    apiClient.get<SupplierOrderDto | null>(`/api/purchase-requests/${purchaseId}/supplier-order`).then((r) => r.data),
+  listAdminUsers: () => apiClient.get<AdminUserDto[]>('/api/admin/users').then((r) => r.data),
+  createAdminUser: (body: CreateAdminUserRequest) =>
+    apiClient.post<AdminUserDto>('/api/admin/users', body).then((r) => r.data),
+  updateAdminUser: (id: string, body: UpdateAdminUserRequest) =>
+    apiClient.put<AdminUserDto>(`/api/admin/users/${id}`, body).then((r) => r.data),
+  getApprovalRoute: () => apiClient.get<ApprovalRouteDto>('/api/admin/approval-route').then((r) => r.data),
+  updateApprovalRoute: (body: UpdateApprovalRouteRequest) =>
+    apiClient.put('/api/admin/approval-route', body)
 };
 
 export interface ProjectDto { id: string; code: string; projectName: string }
@@ -140,4 +148,42 @@ export interface SupplierOrderDto {
   id: string; number: string; status: string; purchaseRequestId: string;
   purchaseRequestNumber: string; externalSystemRef?: string;
   createdAt: string; submittedAt?: string;
+}
+export interface AdminUserDto {
+  id: string;
+  email: string;
+  fullName: string;
+  role: string;
+  roleLabel: string;
+  isActive: boolean;
+}
+export interface CreateAdminUserRequest {
+  email: string;
+  fullName: string;
+  role: string;
+  isActive: boolean;
+}
+export interface UpdateAdminUserRequest {
+  fullName: string;
+  role: string;
+  isActive: boolean;
+}
+export interface ApprovalRouteAssignmentDto {
+  role: string;
+  roleLabel: string;
+  userId?: string;
+}
+export interface AdminUserOptionDto {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  roleLabel: string;
+}
+export interface ApprovalRouteDto {
+  assignments: ApprovalRouteAssignmentDto[];
+  users: AdminUserOptionDto[];
+}
+export interface UpdateApprovalRouteRequest {
+  assignments: Array<{ role: string; userId: string }>;
 }

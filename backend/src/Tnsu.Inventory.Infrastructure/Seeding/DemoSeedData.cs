@@ -5,6 +5,9 @@ public static class DemoSeedData
     public const string DaurenEmail = "onglassyn.dauren@tnsukz.onmicrosoft.com";
     public const string DaurenFullName = "Дәурен Оңласын";
 
+    public const string TrishinaEmail = "m.trishina@kgnt.kz";
+    public const string TrishinaFullName = "Тришина M.";
+
     public const string MechanicEmail = "mechanic@tansu.local";
     public const string MechanicFullName = "Механик участка";
 

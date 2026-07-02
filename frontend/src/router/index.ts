@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { ADMIN_ROLES } from '@/config/roles';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -19,7 +20,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'defect-acts/:id', name: 'defect-act-detail', component: () => import('@/views/DefectActFormView.vue') },
       { path: 'purchase-requests', name: 'purchase-requests', component: () => import('@/views/PurchaseRequestsView.vue') },
       { path: 'purchase-requests/:id', name: 'purchase-request-detail', component: () => import('@/views/PurchaseRequestDetailView.vue') },
-      { path: 'inbox', name: 'inbox', component: () => import('@/views/InboxView.vue') }
+      { path: 'inbox', name: 'inbox', component: () => import('@/views/InboxView.vue') },
+      { path: 'admin/users', name: 'admin-users', component: () => import('@/views/AdminUsersView.vue') }
     ]
   },
   {
@@ -50,6 +52,13 @@ router.beforeEach(async (to) => {
       auth.logout();
       return { name: 'login' };
     }
+  }
+
+  const currentUser = auth.user;
+  if (!currentUser) return { name: 'login' };
+
+  if (to.name === 'admin-users' && !ADMIN_ROLES.has(currentUser.role)) {
+    return { name: 'home' };
   }
 
   return true;

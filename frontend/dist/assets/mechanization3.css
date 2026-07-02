@@ -1,1 +1,1 @@
-.t-grid-2[data-v-95feaccf]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}@media(max-width:900px){.t-grid-2[data-v-95feaccf]{grid-template-columns:1fr}}
+.t-app-content[data-v-eef4cd6d]{flex:1;overflow:auto;padding:16px 20px 24px;background:var(--brand-bg)}.t-app-shell--embed[data-v-eef4cd6d]{height:auto;min-height:0}.t-app-shell--embed .t-app-main[data-v-eef4cd6d]{min-height:0}

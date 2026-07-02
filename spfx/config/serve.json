@@ -2,9 +2,16 @@
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/spfx-serve.schema.json",
   "port": 4321,
   "https": true,
-  "initialPage": "https://localhost:4321/temp/workbench.html",
-  "api": {
-    "port": 5432,
-    "entryPath": "node_modules/@microsoft/sp-webpart-workbench/lib/api/"
+  "initialPage": "https://tnsukz.sharepoint.com/sites/kps/_layouts/15/workbench.aspx",
+  "serveConfigurations": {
+    "default": {
+      "pageUrl": "https://tnsukz.sharepoint.com/sites/kps/_layouts/15/workbench.aspx"
+    },
+    "kps-home": {
+      "pageUrl": "https://tnsukz.sharepoint.com/sites/kps/SitePages/CollabHome.aspx"
+    },
+    "admin": {
+      "pageUrl": "https://tnsukz.sharepoint.com/sites/kps/_layouts/15/workbench.aspx?view=admin"
+    }
   }
 }

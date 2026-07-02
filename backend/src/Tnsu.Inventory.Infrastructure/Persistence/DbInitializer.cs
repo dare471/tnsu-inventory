@@ -27,6 +27,8 @@ public static class DbInitializer
     {
         await UpsertUserAsync(db, DemoSeedData.DaurenEmail, DemoSeedData.DaurenFullName,
             MechanizationRole.ChiefMechanic, "seed-dauren-onglassyn", ct);
+        await UpsertUserAsync(db, DemoSeedData.TrishinaEmail, DemoSeedData.TrishinaFullName,
+            MechanizationRole.SiteMechanic, "seed-trishina-kgnt", ct);
         await UpsertUserAsync(db, DemoSeedData.MechanicEmail, DemoSeedData.MechanicFullName,
             MechanizationRole.SiteMechanic, "demo-site-mechanic-local", ct);
 
@@ -50,6 +52,7 @@ public static class DbInitializer
 
         foreach (var seedUser in await db.Users
             .Where(u => u.Email.ToLower() == DemoSeedData.DaurenEmail.ToLower()
+                        || u.Email.ToLower() == DemoSeedData.TrishinaEmail.ToLower()
                         || u.Email.ToLower() == DemoSeedData.MechanicEmail.ToLower())
             .ToListAsync(ct))
         {
@@ -116,6 +119,13 @@ public static class DbInitializer
             Role = MechanizationRole.ChiefMechanic,
             EntraObjectId = "seed-dauren-onglassyn"
         };
+        var trishina = new AppUser
+        {
+            Email = DemoSeedData.TrishinaEmail,
+            FullName = DemoSeedData.TrishinaFullName,
+            Role = MechanizationRole.SiteMechanic,
+            EntraObjectId = "seed-trishina-kgnt"
+        };
         var omtsHead = new AppUser
         {
             Email = "omts.head@tansu.local",
@@ -124,7 +134,7 @@ public static class DbInitializer
             EntraObjectId = "demo-omts-head"
         };
 
-        db.Users.AddRange(dauren, omtsHead);
+        db.Users.AddRange(dauren, trishina, omtsHead);
         await db.SaveChangesAsync(ct);
 
         var mechanic = new AppUser

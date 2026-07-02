@@ -1,5 +1,12 @@
 import { createRouter, createMemoryHistory, type RouteRecordRaw } from 'vue-router';
 import { getEmbedOptions, type EmbedMode } from './options';
+import { readEmbedViewFromUrl } from './urlParams';
+
+const adminRoute: RouteRecordRaw = {
+  path: 'admin/users',
+  name: 'admin-users',
+  component: () => import('@/views/AdminUsersView.vue')
+};
 
 const listRoutes: RouteRecordRaw[] = [
   { path: '', redirect: { name: 'defect-acts' } },
@@ -8,7 +15,8 @@ const listRoutes: RouteRecordRaw[] = [
   { path: 'defect-acts/:id', name: 'defect-act-detail', component: () => import('@/views/DefectActFormView.vue') },
   { path: 'purchase-requests', name: 'purchase-requests', component: () => import('@/views/PurchaseRequestsView.vue') },
   { path: 'purchase-requests/:id', name: 'purchase-request-detail', component: () => import('@/views/PurchaseRequestDetailView.vue') },
-  { path: 'inbox', name: 'inbox', component: () => import('@/views/InboxView.vue') }
+  { path: 'inbox', name: 'inbox', component: () => import('@/views/InboxView.vue') },
+  adminRoute
 ];
 
 function routesForMode(mode: EmbedMode, documentId?: string): RouteRecordRaw[] {
@@ -26,7 +34,7 @@ function routesForMode(mode: EmbedMode, documentId?: string): RouteRecordRaw[] {
           redirect: documentId
             ? { name: 'defect-act-detail', params: { id: documentId } }
             : { name: 'defect-act-new' }
-        }, ...listRoutes.filter((r) => r.path?.toString().startsWith('defect-acts'))]
+        }, ...listRoutes.filter((r) => r.path?.toString().startsWith('defect-acts')), adminRoute]
       }];
     case 'purchase-request-form':
       return [{
@@ -37,7 +45,7 @@ function routesForMode(mode: EmbedMode, documentId?: string): RouteRecordRaw[] {
           redirect: documentId
             ? { name: 'purchase-request-detail', params: { id: documentId } }
             : { name: 'purchase-requests' }
-        }, ...listRoutes.filter((r) => r.path?.toString().startsWith('purchase-requests'))]
+        }, ...listRoutes.filter((r) => r.path?.toString().startsWith('purchase-requests')), adminRoute]
       }];
   }
 }
@@ -62,7 +70,10 @@ export function createEmbedRouter() {
     routes: routesForMode(embed.mode, embed.documentId)
   });
 
-  const initialName = initialRouteName(embed);
+  const viewFromUrl = readEmbedViewFromUrl();
+  const initialName = viewFromUrl === 'admin-users' || (viewFromUrl && embed.mode === 'lists')
+    ? viewFromUrl
+    : initialRouteName(embed);
   const initialParams = embed.documentId && initialName.includes('detail')
     ? { id: embed.documentId }
     : undefined;

@@ -4,12 +4,13 @@ import { useRouter, useRoute, RouterView } from 'vue-router';
 import { NIcon, NAvatar, NDropdown, NTooltip, NAlert, NButton, NSpace } from 'naive-ui';
 import {
   HomeOutline, DocumentTextOutline, CartOutline, MailUnreadOutline,
-  LogOutOutline, ChevronDownOutline, ChevronBackOutline, ChevronForwardOutline
+  LogOutOutline, ChevronDownOutline, ChevronBackOutline, ChevronForwardOutline, SettingsOutline
 } from '@vicons/ionicons5';
 import { useAuthStore } from '@/stores/auth';
 import { appBrand } from '@/config/branding';
 import { getEmbedOptions, isEmbedMode } from '@/embed/options';
 import { toApiError } from '@/api/client';
+import { ADMIN_ROLES } from '@/config/roles';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -51,15 +52,27 @@ const allItems: NavItem[] = [
   { name: 'home', label: 'Главная', icon: HomeOutline },
   { name: 'defect-acts', label: 'Дефектные акты', icon: DocumentTextOutline },
   { name: 'purchase-requests', label: 'Заявки на закупку', icon: CartOutline },
-  { name: 'inbox', label: 'Входящие согласования', icon: MailUnreadOutline }
+  { name: 'inbox', label: 'Входящие согласования', icon: MailUnreadOutline },
+  { name: 'admin-users', label: 'Администрирование', icon: SettingsOutline }
 ];
 
 const items = computed(() => {
-  if (!embed) return allItems;
-  if (embed.mode === 'lists') return allItems.filter((i) => i.name !== 'home');
-  if (embed.mode === 'defect-act-form') return allItems.filter((i) => i.name === 'defect-acts');
-  return allItems.filter((i) => i.name === 'purchase-requests');
+  const adminAllowed = ADMIN_ROLES.has(auth.user?.role ?? '');
+  const baseItems = adminAllowed
+    ? allItems
+    : allItems.filter((i) => i.name !== 'admin-users');
+
+  if (!embed) return baseItems;
+  if (embed.mode === 'lists') return baseItems.filter((i) => i.name !== 'home');
+  if (embed.mode === 'defect-act-form') {
+    const allowed = new Set(['defect-acts', ...(adminAllowed ? ['admin-users'] : [])]);
+    return baseItems.filter((i) => allowed.has(i.name));
+  }
+  const allowed = new Set(['purchase-requests', ...(adminAllowed ? ['admin-users'] : [])]);
+  return baseItems.filter((i) => allowed.has(i.name));
 });
+
+const showEmbedNav = computed(() => spfxMode && items.value.length > 1);
 
 const activeName = computed(() => route.name?.toString() ?? '');
 
@@ -178,7 +191,7 @@ const userInitials = computed(() => {
         <NAlert v-if="authError" type="error" style="margin-bottom:16px">{{ authError }}</NAlert>
 
         <NSpace
-          v-if="spfxMode && embed?.mode === 'lists'"
+          v-if="showEmbedNav"
           :size="8"
           style="margin-bottom:16px"
           wrap
