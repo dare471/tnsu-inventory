@@ -28,7 +28,7 @@ public static class DbInitializer
         await UpsertUserAsync(db, DemoSeedData.DaurenEmail, DemoSeedData.DaurenFullName,
             MechanizationRole.ChiefMechanic, "seed-dauren-onglassyn", ct);
         await UpsertUserAsync(db, DemoSeedData.TrishinaEmail, DemoSeedData.TrishinaFullName,
-            MechanizationRole.SiteMechanic, "seed-trishina-kgnt", ct);
+            MechanizationRole.ChiefMechanic, "seed-trishina-kgnt", ct);
         await UpsertUserAsync(db, DemoSeedData.MechanicEmail, DemoSeedData.MechanicFullName,
             MechanizationRole.SiteMechanic, "demo-site-mechanic-local", ct);
 
@@ -123,7 +123,7 @@ public static class DbInitializer
         {
             Email = DemoSeedData.TrishinaEmail,
             FullName = DemoSeedData.TrishinaFullName,
-            Role = MechanizationRole.SiteMechanic,
+            Role = MechanizationRole.ChiefMechanic,
             EntraObjectId = "seed-trishina-kgnt"
         };
         var omtsHead = new AppUser
