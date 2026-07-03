@@ -38,7 +38,7 @@ export const inventoryApi = {
   getPurchaseApprovals: (id: string) =>
     apiClient.get<ApprovalStepDto[]>(`/api/purchase-requests/${id}/approvals`).then((r) => r.data),
   printDefectAct: (id: string) => openPrintDocument(`/api/defect-acts/${id}/print`),
-  printPurchaseRequest: (id: string) => openPrintDocument(`/api/purchase-requests/${id}/print`),
+  printPurchaseRequest: async (id: string) => openPrintDocument(`/api/purchase-requests/${id}/print`),
   getProjectSections: (projectId: string) =>
     apiClient.get<ProjectSectionDto[]>(`/api/dictionaries/project-sections?projectId=${projectId}`).then((r) => r.data),
   getWorkTypes: () => apiClient.get<WorkTypeDto[]>('/api/dictionaries/work-types').then((r) => r.data),

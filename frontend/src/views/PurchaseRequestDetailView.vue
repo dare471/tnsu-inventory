@@ -118,8 +118,14 @@ async function createOrder() {
   }
 }
 
-function printRequest() {
-  inventoryApi.printPurchaseRequest(route.params.id as string);
+async function printRequest() {
+  error.value = '';
+  try {
+    await inventoryApi.printPurchaseRequest(route.params.id as string);
+  } catch (e) {
+    error.value = toApiError(e).detail;
+    msg.error(error.value);
+  }
 }
 </script>
 

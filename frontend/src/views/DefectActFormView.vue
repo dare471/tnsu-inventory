@@ -213,7 +213,10 @@ async function createPurchase() {
 }
 
 function printAct() {
-  if (id.value) inventoryApi.printDefectAct(id.value);
+  if (!id.value) return;
+  void inventoryApi.printDefectAct(id.value).catch((e) => {
+    error.value = toApiError(e).detail;
+  });
 }
 </script>
 

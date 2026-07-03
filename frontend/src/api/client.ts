@@ -105,6 +105,16 @@ apiClient.interceptors.response.use(
   }
 );
 
-export function openPrintDocument(path: string) {
-  window.open(`${getApiBaseUrl()}${path}`, '_blank');
+export async function openPrintDocument(path: string) {
+  const { data } = await apiClient.get<string>(path, { responseType: 'text' });
+  const blob = new Blob([data], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (!win) {
+    URL.revokeObjectURL(url);
+    throw new Error('Разрешите всплывающие окна для печати документа.');
+  }
+  win.addEventListener('load', () => {
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  });
 }
