@@ -68,7 +68,11 @@ const items = computed(() => {
     const allowed = new Set(['defect-acts', ...(adminAllowed ? ['admin-users'] : [])]);
     return baseItems.filter((i) => allowed.has(i.name));
   }
-  const allowed = new Set(['purchase-requests', ...(adminAllowed ? ['admin-users'] : [])]);
+  const allowed = new Set([
+    'purchase-requests',
+    'purchase-request-new',
+    ...(adminAllowed ? ['admin-users'] : [])
+  ]);
   return baseItems.filter((i) => allowed.has(i.name));
 });
 

@@ -14,6 +14,7 @@ const router = useRouter();
       </p>
       <NSpace>
         <NButton type="primary" @click="router.push({ name: 'defect-act-new' })">Создать дефектный акт</NButton>
+        <NButton type="primary" secondary @click="router.push({ name: 'purchase-request-new' })">Создать заявку</NButton>
         <NButton secondary @click="router.push({ name: 'inbox' })">Мои согласования</NButton>
       </NSpace>
     </NCard>

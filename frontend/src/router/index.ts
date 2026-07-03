@@ -19,6 +19,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'defect-acts/new', name: 'defect-act-new', component: () => import('@/views/DefectActFormView.vue') },
       { path: 'defect-acts/:id', name: 'defect-act-detail', component: () => import('@/views/DefectActFormView.vue') },
       { path: 'purchase-requests', name: 'purchase-requests', component: () => import('@/views/PurchaseRequestsView.vue') },
+      { path: 'purchase-requests/new', name: 'purchase-request-new', component: () => import('@/views/PurchaseRequestFormView.vue') },
       { path: 'purchase-requests/:id', name: 'purchase-request-detail', component: () => import('@/views/PurchaseRequestDetailView.vue') },
       { path: 'inbox', name: 'inbox', component: () => import('@/views/InboxView.vue') },
       { path: 'admin/users', name: 'admin-users', component: () => import('@/views/AdminUsersView.vue') }

@@ -15,14 +15,56 @@ public sealed class HttpDictionary1CClient(
 {
     public async Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(CancellationToken ct)
     {
-        var rows = await GetAsync<ProjectApiRow>("/Dictionary/Projects1C", ct);
-        return rows
-            .Select(r => Guid.TryParse(r.Id, out var id)
-                ? new ProjectDto(id, r.Code ?? "", r.ProjectName ?? "")
-                : null)
-            .Where(x => x is not null)
-            .Cast<ProjectDto>()
-            .ToList();
+        var baseUrl = options.Value.BaseUrl.TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            return [];
+
+        const int pageSize = 100;
+        var all = new List<ProjectDto>();
+
+        try
+        {
+            var token = await tokenProvider.GetAccessTokenAsync(ct);
+            var page = 1;
+            int totalPages;
+
+            do
+            {
+                var url = $"{baseUrl}/Project?page={page}&pageSize={pageSize}";
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                if (token is not null)
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                using var response = await http.SendAsync(request, ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    logger.LogWarning("Dictionary API /Project returned {Status}", response.StatusCode);
+                    break;
+                }
+
+                var body = await response.Content.ReadFromJsonAsync<ProjectPageResponse>(ct);
+                if (body?.Items is null || body.Items.Count == 0)
+                    break;
+
+                foreach (var row in body.Items)
+                {
+                    if (row.Deleted)
+                        continue;
+                    if (row.ToDto() is { } dto)
+                        all.Add(dto);
+                }
+
+                totalPages = body.TotalPages > 0 ? body.TotalPages : 1;
+                page++;
+            } while (page <= totalPages);
+
+            return all.DistinctBy(x => x.Id).ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Dictionary API /Project failed");
+            return [];
+        }
     }
 
     public async Task<IReadOnlyList<VehicleDto>> GetVehiclesAsync(CancellationToken ct)
@@ -109,30 +151,9 @@ public sealed class HttpDictionary1CClient(
 
     private static List<T> GetDemoFallback<T>(string path)
     {
-        if (typeof(T) == typeof(ProjectApiRow))
-            return
-            [
-                (T)(object)new ProjectApiRow
-                {
-                    Id = "ec3c9aa7-29ef-4725-11ee-50903dd59e16",
-                    Code = "БК0000001",
-                    ProjectName = "Строительство завода по производству меди Беркара ARX-0015-01-21"
-                }
-            ];
-
-        if (typeof(T) == typeof(VehicleApiRow))
-            return
-            [
-                (T)(object)new VehicleApiRow
-                {
-                    Id = "5000b296-4856-b5c4-11ed-97fcfbcaa218",
-                    GroupName = "МАЛАЯ МЕХАНИЗАЦИЯ",
-                    Name = "ГЕНЕРАТОР ДИЗЕЛЬНЫЙ AKSA APD145C / БК0001037",
-                    StateNumber = "БК0001037",
-                    VinCode = "",
-                    FullPath = "МАЛАЯ МЕХАНИЗАЦИЯ\\Малая механизация Жезказган"
-                }
-            ];
+        if (path.Contains("/Dictionary/vehicles", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("/Project", StringComparison.OrdinalIgnoreCase))
+            return [];
 
         if (typeof(T) == typeof(SectionApiRow))
             return [(T)(object)new SectionApiRow { Id = Guid.NewGuid().ToString(), Code = "Р-01", Name = "Механизация" }];
@@ -149,11 +170,47 @@ public sealed class HttpDictionary1CClient(
         return [];
     }
 
+    private sealed class ProjectPageResponse
+    {
+        [JsonPropertyName("items")]
+        public List<ProjectApiRow>? Items { get; set; }
+
+        [JsonPropertyName("totalPages")]
+        public int TotalPages { get; set; }
+    }
+
     private sealed class ProjectApiRow
     {
-        [JsonPropertyName("Id")] public string? Id { get; set; }
-        [JsonPropertyName("Code")] public string? Code { get; set; }
-        [JsonPropertyName("ProjectName")] public string? ProjectName { get; set; }
+        [JsonPropertyName("id")]
+        public int? Id { get; set; }
+
+        [JsonPropertyName("oid")]
+        public string? Oid { get; set; }
+
+        [JsonPropertyName("projectOid")]
+        public string? ProjectOid { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("code")]
+        public string? Code { get; set; }
+
+        [JsonPropertyName("deleted")]
+        public bool Deleted { get; set; }
+
+        public ProjectDto? ToDto()
+        {
+            var oidRaw = ProjectOid ?? Oid;
+            if (!Guid.TryParse(oidRaw, out var oid))
+                return null;
+
+            var name = (Name ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                return null;
+
+            return new ProjectDto(oid, (Code ?? string.Empty).Trim(), name);
+        }
     }
 
     private sealed class VehicleApiRow

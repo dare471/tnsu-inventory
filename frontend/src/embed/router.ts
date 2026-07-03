@@ -14,6 +14,7 @@ const listRoutes: RouteRecordRaw[] = [
   { path: 'defect-acts/new', name: 'defect-act-new', component: () => import('@/views/DefectActFormView.vue') },
   { path: 'defect-acts/:id', name: 'defect-act-detail', component: () => import('@/views/DefectActFormView.vue') },
   { path: 'purchase-requests', name: 'purchase-requests', component: () => import('@/views/PurchaseRequestsView.vue') },
+  { path: 'purchase-requests/new', name: 'purchase-request-new', component: () => import('@/views/PurchaseRequestFormView.vue') },
   { path: 'purchase-requests/:id', name: 'purchase-request-detail', component: () => import('@/views/PurchaseRequestDetailView.vue') },
   { path: 'inbox', name: 'inbox', component: () => import('@/views/InboxView.vue') },
   adminRoute
@@ -44,7 +45,7 @@ function routesForMode(mode: EmbedMode, documentId?: string): RouteRecordRaw[] {
           path: '',
           redirect: documentId
             ? { name: 'purchase-request-detail', params: { id: documentId } }
-            : { name: 'purchase-requests' }
+            : { name: 'purchase-request-new' }
         }, ...listRoutes.filter((r) => r.path?.toString().startsWith('purchase-requests')), adminRoute]
       }];
   }
@@ -57,7 +58,7 @@ function initialRouteName(embed: NonNullable<ReturnType<typeof getEmbedOptions>>
   if (embed.mode === 'defect-act-form') {
     return embed.documentId ? 'defect-act-detail' : 'defect-act-new';
   }
-  return embed.documentId ? 'purchase-request-detail' : 'purchase-requests';
+  return embed.documentId ? 'purchase-request-detail' : 'purchase-request-new';
 }
 
 export function createEmbedRouter() {

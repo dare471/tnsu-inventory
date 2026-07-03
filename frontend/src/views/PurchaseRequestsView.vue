@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { h, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { NCard, NDataTable, NAlert, NSpace, NSpin, type DataTableColumns } from 'naive-ui';
+import { NCard, NDataTable, NAlert, NSpace, NSpin, NButton, type DataTableColumns } from 'naive-ui';
 import { inventoryApi, type PurchaseRequestListItem } from '@/api/inventory';
 import { toApiError } from '@/api/client';
 
@@ -43,6 +43,11 @@ onMounted(async () => {
 <template>
   <NCard title="Заявки на закупку">
     <NSpace vertical>
+      <NSpace>
+        <NButton type="primary" @click="router.push({ name: 'purchase-request-new' })">
+          Создать заявку
+        </NButton>
+      </NSpace>
       <NAlert v-if="error" type="error">{{ error }}</NAlert>
       <NSpin :show="loading">
         <div class="t-table-wrap">
