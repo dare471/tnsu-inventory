@@ -29,6 +29,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryDbContext>(sp => sp.GetRequiredService<InventoryDbContext>());
         services.AddSingleton<Dictionary1CTokenProvider>();
         services.AddHttpClient<IDictionary1CClient, HttpDictionary1CClient>();
+        services.AddHttpClient<IZupEmployeeClient, HttpZupEmployeeClient>();
         services.AddHttpClient<Dictionary1CTokenProvider>();
         services.AddSingleton<LocalAttachmentStorage>();
         services.AddHttpClient<SharePointAttachmentStorage>();

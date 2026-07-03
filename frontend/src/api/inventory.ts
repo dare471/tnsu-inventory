@@ -66,6 +66,8 @@ export const inventoryApi = {
   getSupplierOrder: (purchaseId: string) =>
     apiClient.get<SupplierOrderDto | null>(`/api/purchase-requests/${purchaseId}/supplier-order`).then((r) => r.data),
   listAdminUsers: () => apiClient.get<AdminUserDto[]>('/api/admin/users').then((r) => r.data),
+  listZupEmployees: (company: string) =>
+    apiClient.get<ZupEmployeeDto[]>('/api/admin/zup/employees', { params: { company } }).then((r) => r.data),
   createAdminUser: (body: CreateAdminUserRequest) =>
     apiClient.post<AdminUserDto>('/api/admin/users', body).then((r) => r.data),
   updateAdminUser: (id: string, body: UpdateAdminUserRequest) =>
@@ -158,10 +160,18 @@ export interface AdminUserDto {
   isActive: boolean;
 }
 export interface CreateAdminUserRequest {
-  email: string;
-  fullName: string;
+  employerCompany: string;
+  zupEmployeeId: string;
   role: string;
   isActive: boolean;
+}
+export interface ZupEmployeeDto {
+  externalId: string;
+  fullName: string;
+  position: string;
+  email: string;
+  department?: string;
+  mobile?: string;
 }
 export interface UpdateAdminUserRequest {
   fullName: string;

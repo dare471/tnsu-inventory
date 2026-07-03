@@ -39,6 +39,19 @@ public sealed record WorkTypeDto(Guid Id, string Code, string Name);
 public sealed record NomenclatureDto(Guid Id, string Code, string Name, string? Unit);
 public sealed record ContractorDto(Guid Id, string Code, string Name, string? Inn);
 
+public interface IZupEmployeeClient
+{
+    Task<IReadOnlyList<ZupEmployeeDto>> ListEmployeesAsync(string employerCompany, CancellationToken ct);
+}
+
+public sealed record ZupEmployeeDto(
+    string ExternalId,
+    string FullName,
+    string Position,
+    string Email,
+    string Department,
+    string Mobile);
+
 public interface IAttachmentStorage
 {
     Task<string> SaveAsync(Stream content, string fileName, CancellationToken ct);

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue';
+import { computed, h, onMounted, reactive, ref, watch } from 'vue';
 import {
   NAlert, NButton, NCard, NDataTable, NForm, NFormItem, NInput, NSelect, NSpace, NSwitch, NTag, type DataTableColumns
 } from 'naive-ui';
-import { inventoryApi, type AdminUserDto, type ApprovalRouteAssignmentDto, type AdminUserOptionDto } from '@/api/inventory';
+import { inventoryApi, type AdminUserDto, type ApprovalRouteAssignmentDto, type AdminUserOptionDto, type ZupEmployeeDto } from '@/api/inventory';
 import { toApiError } from '@/api/client';
 import { MECHANIZATION_ROLES } from '@/config/roles';
+import { EMPLOYER_COMPANY_OPTIONS } from '@/config/zup';
 
 const loading = ref(true);
 const savingRoute = ref(false);
@@ -16,14 +17,61 @@ const routeAssignments = ref<ApprovalRouteAssignmentDto[]>([]);
 const routeUsers = ref<AdminUserOptionDto[]>([]);
 
 const createForm = reactive({
+  employerCompany: null as string | null,
+  zupEmployeeId: null as string | null,
   email: '',
   fullName: '',
+  position: '',
   role: 'site_mechanic',
   isActive: true
 });
 const creating = ref(false);
+const zupEmployees = ref<ZupEmployeeDto[]>([]);
+const zupLoading = ref(false);
 
 const roleOptions = MECHANIZATION_ROLES.map((r) => ({ label: r.label, value: r.value }));
+
+const zupOptions = computed(() =>
+  zupEmployees.value.map((e) => ({
+    label: `${e.fullName} · ${e.position}${e.email ? ` · ${e.email}` : ''}`,
+    value: e.externalId
+  }))
+);
+
+watch(() => createForm.employerCompany, async (company) => {
+  createForm.zupEmployeeId = null;
+  createForm.email = '';
+  createForm.fullName = '';
+  createForm.position = '';
+  zupEmployees.value = [];
+  if (!company) return;
+
+  zupLoading.value = true;
+  error.value = '';
+  try {
+    zupEmployees.value = await inventoryApi.listZupEmployees(company);
+    if (!zupEmployees.value.length)
+      error.value = 'Справочник ЗУП пуст или недоступен. Проверьте настройки Dictionary1C / ZUP.';
+  } catch (e) {
+    error.value = toApiError(e).detail;
+  } finally {
+    zupLoading.value = false;
+  }
+});
+
+watch(() => createForm.zupEmployeeId, (id) => {
+  if (!id) {
+    createForm.email = '';
+    createForm.fullName = '';
+    createForm.position = '';
+    return;
+  }
+  const row = zupEmployees.value.find((e) => e.externalId === id);
+  if (!row) return;
+  createForm.fullName = row.fullName;
+  createForm.position = row.position;
+  createForm.email = row.email;
+});
 
 const routeDraft = reactive<Record<string, string>>({});
 
@@ -61,20 +109,29 @@ async function loadAll() {
 }
 
 async function createUser() {
+  if (!createForm.employerCompany || !createForm.zupEmployeeId) {
+    error.value = 'Выберите компанию и сотрудника из ЗУП.';
+    return;
+  }
+
   creating.value = true;
   error.value = '';
   success.value = '';
   try {
     await inventoryApi.createAdminUser({
-      email: createForm.email,
-      fullName: createForm.fullName,
+      employerCompany: createForm.employerCompany,
+      zupEmployeeId: createForm.zupEmployeeId,
       role: createForm.role,
       isActive: createForm.isActive
     });
+    createForm.employerCompany = null;
+    createForm.zupEmployeeId = null;
     createForm.email = '';
     createForm.fullName = '';
+    createForm.position = '';
     createForm.role = 'site_mechanic';
     createForm.isActive = true;
+    zupEmployees.value = [];
     success.value = 'Пользователь добавлен.';
     await loadAll();
   } catch (e) {
@@ -175,12 +232,37 @@ onMounted(() => {
       <NAlert v-if="success" type="success">{{ success }}</NAlert>
 
       <NCard title="Добавить пользователя" size="small">
+        <p style="margin:0 0 12px;color:var(--brand-text-muted)">
+          Данные подтягиваются из ЗУП: выберите компанию и сотрудника.
+        </p>
         <NForm label-placement="left" :label-width="130">
-          <NFormItem label="Email">
-            <NInput v-model:value="createForm.email" placeholder="user@tnsukz.onmicrosoft.com" />
+          <NFormItem label="Компания">
+            <NSelect
+              v-model:value="createForm.employerCompany"
+              :options="EMPLOYER_COMPANY_OPTIONS"
+              placeholder="Выберите компанию"
+              clearable
+            />
+          </NFormItem>
+          <NFormItem label="Сотрудник ЗУП">
+            <NSelect
+              v-model:value="createForm.zupEmployeeId"
+              :options="zupOptions"
+              :loading="zupLoading"
+              :disabled="!createForm.employerCompany"
+              filterable
+              clearable
+              placeholder="Выберите сотрудника"
+            />
           </NFormItem>
           <NFormItem label="ФИО">
-            <NInput v-model:value="createForm.fullName" />
+            <NInput :value="createForm.fullName" readonly placeholder="Из ЗУП" />
+          </NFormItem>
+          <NFormItem label="Должность">
+            <NInput :value="createForm.position" readonly placeholder="Из ЗУП" />
+          </NFormItem>
+          <NFormItem label="Email">
+            <NInput :value="createForm.email" readonly placeholder="Из ЗУП" />
           </NFormItem>
           <NFormItem label="Роль">
             <NSelect v-model:value="createForm.role" :options="roleOptions" />
@@ -188,7 +270,14 @@ onMounted(() => {
           <NFormItem label="Активен">
             <NSwitch v-model:value="createForm.isActive" />
           </NFormItem>
-          <NButton type="primary" :loading="creating" @click="createUser">Добавить</NButton>
+          <NButton
+            type="primary"
+            :loading="creating"
+            :disabled="!createForm.zupEmployeeId"
+            @click="createUser"
+          >
+            Добавить
+          </NButton>
         </NForm>
       </NCard>
 

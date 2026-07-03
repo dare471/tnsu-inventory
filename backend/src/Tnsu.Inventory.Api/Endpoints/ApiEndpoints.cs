@@ -161,23 +161,48 @@ public static class ApiEndpoints
             return Results.Ok(users);
         });
 
+        admin.MapGet("/zup/employees", async (
+            ICurrentUser current,
+            [FromQuery] string company,
+            IZupEmployeeClient zup,
+            CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+            if (!EmployerCompany.IsValid(company))
+                return Results.BadRequest(new { message = "Некорректная компания." });
+
+            var employees = await zup.ListEmployeesAsync(company, ct);
+            return Results.Ok(employees);
+        });
+
         admin.MapPost("/users", async (
             ICurrentUser current,
             CreateAdminUserRequest body,
             InventoryDbContext db,
+            IZupEmployeeClient zup,
             CancellationToken ct) =>
         {
             if (!IsAdminRole(current.Role)) return Results.Forbid();
 
-            var email = body.Email.Trim().ToLowerInvariant();
-            if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
-                return Results.BadRequest(new { message = "Некорректный email." });
+            if (!EmployerCompany.IsValid(body.EmployerCompany))
+                return Results.BadRequest(new { message = "Выберите компанию из ЗУП." });
 
-            if (string.IsNullOrWhiteSpace(body.FullName))
-                return Results.BadRequest(new { message = "Укажите ФИО пользователя." });
+            var zupEmployeeId = body.ZupEmployeeId?.Trim();
+            if (string.IsNullOrWhiteSpace(zupEmployeeId))
+                return Results.BadRequest(new { message = "Выберите сотрудника из ЗУП." });
 
             if (!MechanizationRole.All.Contains(body.Role))
                 return Results.BadRequest(new { message = "Неизвестная роль." });
+
+            var employees = await zup.ListEmployeesAsync(body.EmployerCompany, ct);
+            var employee = employees.FirstOrDefault(e => e.ExternalId == zupEmployeeId);
+            if (employee is null)
+                return Results.BadRequest(new { message = "Сотрудник не найден в ЗУП. Обновите список." });
+
+            if (string.IsNullOrWhiteSpace(employee.Email) || !employee.Email.Contains('@'))
+                return Results.BadRequest(new { message = "У сотрудника в ЗУП не указан корректный email." });
+
+            var email = employee.Email.Trim().ToLowerInvariant();
 
             var exists = await db.Users.AnyAsync(u => u.Email.ToLower() == email, ct);
             if (exists)
@@ -186,7 +211,7 @@ public static class ApiEndpoints
             var user = new Tnsu.Inventory.Domain.Entities.AppUser
             {
                 Email = email,
-                FullName = body.FullName.Trim(),
+                FullName = employee.FullName.Trim(),
                 Role = body.Role,
                 IsActive = body.IsActive
             };
@@ -323,7 +348,7 @@ public sealed record AdminUserDto(
     string Role,
     string RoleLabel,
     bool IsActive);
-public sealed record CreateAdminUserRequest(string Email, string FullName, string Role, bool IsActive);
+public sealed record CreateAdminUserRequest(string EmployerCompany, string ZupEmployeeId, string Role, bool IsActive);
 public sealed record UpdateAdminUserRequest(string FullName, string Role, bool IsActive);
 public sealed record AdminUserOptionDto(Guid Id, string FullName, string Email, string Role, string RoleLabel);
 public sealed record ApprovalRouteAssignmentDto(string Role, string RoleLabel, Guid? UserId);
