@@ -3,16 +3,17 @@ import { computed, h, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   NCard, NForm, NFormItem, NSelect, NInput, NInputNumber, NButton, NAlert, NSpace,
-  NDataTable, NTag, type DataTableColumns
+  NDataTable, NTag, NUpload, NModal, useMessage, type UploadFileInfo, type DataTableColumns
 } from 'naive-ui';
 import {
   inventoryApi, type ApprovalStepDto, type DefectActDto, type DefectActPartInput,
-  type ProjectDto, type VehicleDto
+  type ProjectDto, type VehicleDto, type InboxItem, type AttachmentDto
 } from '@/api/inventory';
 import { toApiError } from '@/api/client';
 
 const route = useRoute();
 const router = useRouter();
+const msg = useMessage();
 const id = computed(() => route.params.id as string | undefined);
 const isNew = computed(() => route.name === 'defect-act-new');
 
@@ -20,9 +21,16 @@ const projects = ref<ProjectDto[]>([]);
 const vehicles = ref<VehicleDto[]>([]);
 const act = ref<DefectActDto | null>(null);
 const approvals = ref<ApprovalStepDto[]>([]);
+const attachments = ref<AttachmentDto[]>([]);
+const inboxItem = ref<InboxItem | null>(null);
 const error = ref('');
 const message = ref('');
 const loading = ref(true);
+const decisionModalOpen = ref(false);
+const decisionKind = ref<'approve' | 'return'>('approve');
+const decisionComment = ref('');
+const decisionSubmitting = ref(false);
+const actingRoleLabel = computed(() => inboxItem.value?.approverRoleLabel ?? '—');
 
 const projectId = ref('');
 const projectCode = ref('');
@@ -103,8 +111,25 @@ const approvalColumns: DataTableColumns<ApprovalStepDto> = [
   { title: 'Шаг', key: 'orderNo', width: 60 },
   { title: 'Роль', key: 'approverRoleLabel' },
   { title: 'Согласующий', key: 'approverFullName' },
-  { title: 'Статус', key: 'status' },
+  { title: 'Статус', key: 'statusLabel' },
+  {
+    title: 'Дата',
+    key: 'statusDate',
+    render: (r) => (r.statusDate ? new Date(r.statusDate).toLocaleString('ru-RU') : '—')
+  },
   { title: 'Комментарий', key: 'comment', render: (r) => r.comment ?? '—' }
+];
+const attachmentColumns: DataTableColumns<AttachmentDto> = [
+  {
+    title: 'Файл',
+    key: 'fileName',
+    render: (r) => h('a', { href: `/api/attachments/${r.id}`, target: '_blank' }, r.fileName)
+  },
+  {
+    title: 'Дата',
+    key: 'uploadedAt',
+    render: (r) => new Date(r.uploadedAt).toLocaleString('ru-RU')
+  }
 ];
 
 onMounted(async () => {
@@ -124,6 +149,9 @@ onMounted(async () => {
 async function loadAct(actId: string) {
   act.value = await inventoryApi.getDefectAct(actId);
   approvals.value = await inventoryApi.getDefectApprovals(actId);
+  attachments.value = await inventoryApi.listDefectAttachments(actId);
+  const inbox = await inventoryApi.getInbox();
+  inboxItem.value = inbox.find((x) => x.documentType === 'defect_act' && x.documentId === actId) ?? null;
   projectId.value = act.value.projectId;
   projectCode.value = act.value.projectCode;
   projectName.value = act.value.projectName;
@@ -138,6 +166,19 @@ async function loadAct(actId: string) {
     lineNo: p.lineNo, name: p.name, catalogNumber: p.catalogNumber,
     quantity: p.quantity, unit: p.unit, notes: p.notes
   }));
+}
+
+async function uploadFiles(options: { file: UploadFileInfo }) {
+  const raw = options.file.file;
+  if (!raw || !id.value) return;
+  try {
+    await inventoryApi.uploadDefectAttachment(id.value, raw, 'general');
+    attachments.value = await inventoryApi.listDefectAttachments(id.value);
+    msg.success('Файл загружен');
+  } catch (e) {
+    error.value = toApiError(e).detail;
+    msg.error(error.value);
+  }
 }
 
 function onProjectChange(v: string) {
@@ -202,6 +243,36 @@ async function submit() {
   }
 }
 
+function openDecision(kind: 'approve' | 'return') {
+  decisionKind.value = kind;
+  decisionComment.value = '';
+  decisionModalOpen.value = true;
+}
+
+async function applyDecision() {
+  if (!inboxItem.value) return;
+  if (decisionKind.value === 'return' && !decisionComment.value.trim()) {
+    msg.warning('Комментарий обязателен при возврате');
+    return;
+  }
+  decisionSubmitting.value = true;
+  try {
+    if (decisionKind.value === 'approve') {
+      await inventoryApi.approveStep(inboxItem.value.stepId, decisionComment.value.trim() || undefined);
+      msg.success('Документ согласован');
+    } else {
+      await inventoryApi.returnStep(inboxItem.value.stepId, decisionComment.value.trim());
+      msg.success('Документ возвращён');
+    }
+    decisionModalOpen.value = false;
+    if (id.value) await loadAct(id.value);
+  } catch (e) {
+    msg.error(toApiError(e).detail);
+  } finally {
+    decisionSubmitting.value = false;
+  }
+}
+
 async function createPurchase() {
   if (!id.value) return;
   try {
@@ -248,6 +319,8 @@ function printAct() {
             @update:value="onVehicleChange"
           />
         </NFormItem>
+      </div>
+      <div class="t-grid-2">
         <NFormItem label="Гос. номер">
           <NInput v-model:value="stateNumber" readonly />
         </NFormItem>
@@ -277,9 +350,27 @@ function printAct() {
       <NSpace>
         <NButton v-if="editable" type="primary" @click="save">Сохранить черновик</NButton>
         <NButton v-if="act?.canSubmit" type="primary" @click="submit">Отправить на согласование</NButton>
+        <NButton v-if="inboxItem" type="primary" @click="openDecision('approve')">Согласовать</NButton>
+        <NButton v-if="inboxItem" secondary @click="openDecision('return')">Вернуть</NButton>
         <NButton v-if="act?.canCreatePurchaseRequest" type="primary" @click="createPurchase">Сформировать заявку</NButton>
         <NButton v-if="!isNew && act" secondary @click="printAct">Печать</NButton>
       </NSpace>
+      <NAlert v-if="inboxItem" type="warning">
+        Действие будет выполнено за роль: <strong>{{ actingRoleLabel }}</strong>
+      </NAlert>
+
+      <div v-if="id">
+        <h3 style="margin:0 0 12px">Вложения</h3>
+        <NSpace v-if="editable" style="margin-bottom:12px">
+          <NUpload :show-file-list="false" @change="uploadFiles">
+            <NButton secondary>Добавить вложение</NButton>
+          </NUpload>
+        </NSpace>
+        <div v-if="attachments.length" class="t-table-wrap">
+          <NDataTable :columns="attachmentColumns" :data="attachments" size="small" :bordered="false" />
+        </div>
+        <p v-else style="color:var(--brand-text-muted)">Вложений нет</p>
+      </div>
 
       <div v-if="approvals.length">
         <h3 style="margin:0 0 12px">Маршрут согласования</h3>
@@ -288,6 +379,24 @@ function printAct() {
         </div>
       </div>
     </NSpace>
+    <NModal v-model:show="decisionModalOpen">
+      <NCard
+        style="max-width:560px;margin:80px auto 0;"
+        :title="decisionKind === 'approve' ? 'Согласовать документ' : 'Вернуть на доработку'"
+        :bordered="false"
+      >
+        <NAlert type="warning" style="margin-bottom:12px">
+          Вы подтверждаете действие за роль: <strong>{{ actingRoleLabel }}</strong>
+        </NAlert>
+        <NFormItem :label="decisionKind === 'approve' ? 'Комментарий (необязательно)' : 'Комментарий'">
+          <NInput v-model:value="decisionComment" type="textarea" :rows="4" />
+        </NFormItem>
+        <NSpace justify="end">
+          <NButton @click="decisionModalOpen = false">Отмена</NButton>
+          <NButton type="primary" :loading="decisionSubmitting" @click="applyDecision">Подтвердить</NButton>
+        </NSpace>
+      </NCard>
+    </NModal>
   </NCard>
 </template>
 

@@ -14,18 +14,22 @@ const columns: DataTableColumns<DefectActListItem> = [
   {
     title: 'Номер',
     key: 'number',
+    width: 120,
+    ellipsis: { tooltip: true },
     render: (row) => h('a', {
       style: 'cursor:pointer;color:var(--brand-orange);font-weight:600',
       onClick: () => router.push({ name: 'defect-act-detail', params: { id: row.id } })
     }, row.number)
   },
-  { title: 'Статус', key: 'statusLabel' },
-  { title: 'Проект', key: 'projectName' },
-  { title: 'Техника', key: 'vehicleName' },
-  { title: 'Гос. №', key: 'stateNumber' },
+  { title: 'Статус', key: 'statusLabel', width: 130, ellipsis: { tooltip: true } },
+  { title: 'Проект', key: 'projectName', width: 220, ellipsis: { tooltip: true } },
+  { title: 'Техника', key: 'vehicleName', width: 200, ellipsis: { tooltip: true } },
+  { title: 'Инициатор', key: 'initiatorFullName', width: 150, ellipsis: { tooltip: true } },
+  { title: 'Гос. №', key: 'stateNumber', width: 100, ellipsis: { tooltip: true } },
   {
     title: 'Дата',
     key: 'createdAt',
+    width: 160,
     render: (row) => new Date(row.createdAt).toLocaleString('ru-RU')
   }
 ];

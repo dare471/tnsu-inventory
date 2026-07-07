@@ -81,10 +81,43 @@ public sealed class ListPurchaseRequestsHandler(IInventoryDbContext db)
                 r.Number.Contains(s) || r.VehicleName.Contains(s) || r.ProjectName.Contains(s));
         }
 
-        return await query.OrderByDescending(r => r.CreatedAt).Take(200)
-            .Select(r => new PurchaseRequestListItemDto(
-            r.Id, r.Number, r.Status, WorkflowStatus.Label(r.Status),
-            r.ProjectName, r.VehicleName, r.EstimatedAmount, r.CreatedAt)).ToListAsync(ct);
+        var list = await query.OrderByDescending(r => r.CreatedAt).Take(200)
+            .Select(r => new
+            {
+                r.Id,
+                r.Number,
+                r.Status,
+                r.ProjectName,
+                r.VehicleName,
+                InitiatorFullName = r.CreatedBy!.FullName,
+                r.EstimatedAmount,
+                r.CreatedAt
+            })
+            .ToListAsync(ct);
+
+        var ids = list.Select(x => x.Id).ToList();
+        var pendingSteps = await db.ApprovalSteps.AsNoTracking()
+            .Include(s => s.Approver)
+            .Where(s => s.PurchaseRequestId.HasValue
+                        && ids.Contains(s.PurchaseRequestId.Value)
+                        && s.Status == ApprovalStepStatus.Pending)
+            .OrderBy(s => s.OrderNo)
+            .ToListAsync(ct);
+        var pendingByRequest = pendingSteps
+            .GroupBy(s => s.PurchaseRequestId!.Value)
+            .ToDictionary(g => g.Key, g => g.First().Approver?.FullName);
+
+        return list.Select(r => new PurchaseRequestListItemDto(
+            r.Id,
+            r.Number,
+            r.Status,
+            WorkflowStatus.Label(r.Status),
+            r.ProjectName,
+            r.VehicleName,
+            r.InitiatorFullName,
+            pendingByRequest.GetValueOrDefault(r.Id),
+            r.EstimatedAmount,
+            r.CreatedAt)).ToList();
     }
 }
 
@@ -102,8 +135,8 @@ public sealed class GetPurchaseRequestApprovalsHandler(IInventoryDbContext db)
             .OrderBy(s => s.OrderNo)
             .Select(s => new ApprovalStepDto(
                 s.Id, s.OrderNo, s.ApproverRole, MechanizationRole.Label(s.ApproverRole),
-                s.Approver!.FullName, s.Status, s.Action, s.Comment,
-                s.RequiresDigitalSignature, s.AssignedAt, s.DecidedAt))
+                s.Approver!.FullName, s.Status, ApprovalStepStatus.Label(s.Status), s.Action, s.Comment,
+                s.RequiresDigitalSignature, s.AssignedAt, s.DecidedAt, s.DecidedAt ?? s.AssignedAt))
             .ToListAsync(ct);
     }
 }

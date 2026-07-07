@@ -18,6 +18,27 @@ public sealed class SharePointOptions
         !string.IsNullOrWhiteSpace(ClientSecret);
 }
 
+public sealed class NotificationsOptions
+{
+    public const string SectionName = "Notifications";
+
+    public NotificationEmailOptions Email { get; set; } = new();
+}
+
+public sealed class NotificationEmailOptions
+{
+    public string Host { get; set; } = "localhost";
+    public int Port { get; set; } = 1025;
+    public bool UseStartTls { get; set; }
+    public string FromEmail { get; set; } = "portal@tnsu.kz";
+    public string FromName { get; set; } = "TNSU Portal";
+    public string? Username { get; set; }
+    public string? Password { get; set; }
+
+    public bool HasCredentials =>
+        !string.IsNullOrWhiteSpace(Username) && !string.IsNullOrWhiteSpace(Password);
+}
+
 public sealed class TeamsOptions
 {
     public const string SectionName = "Teams";

@@ -8,6 +8,8 @@ public interface IInventoryDbContext
     Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.PurchaseRequest> PurchaseRequests { get; }
     Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.PurchaseRequestLine> PurchaseRequestLines { get; }
     Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.ApprovalStep> ApprovalSteps { get; }
+    Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.ProjectApprovalAssignee> ProjectApprovalAssignees { get; }
+    Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.DocumentApprovalAssignee> DocumentApprovalAssignees { get; }
     Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.DocumentAttachment> Attachments { get; }
     Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.SupplierOrder> SupplierOrders { get; }
 
@@ -72,6 +74,9 @@ public interface INotificationService
 {
     Task SendApprovalReminderAsync(ApprovalNotification notification, CancellationToken ct);
     Task SendEscalationAsync(ApprovalNotification notification, CancellationToken ct);
+    Task SendAssignedForApprovalAsync(WorkflowNotification notification, CancellationToken ct);
+    Task SendApprovedAsync(WorkflowNotification notification, CancellationToken ct);
+    Task SendReturnedAsync(WorkflowNotification notification, CancellationToken ct);
 }
 
 public sealed record ApprovalNotification(
@@ -84,4 +89,15 @@ public sealed record ApprovalNotification(
     string? ManagerEmail,
     string? ChiefMechanicEmail,
     int PendingWorkingDays,
+    string LinkUrl);
+
+public sealed record WorkflowNotification(
+    string DocumentType,
+    Guid DocumentId,
+    string DocumentNumber,
+    string RecipientEmail,
+    string RecipientName,
+    string InitiatorEmail,
+    string InitiatorName,
+    string? Comment,
     string LinkUrl);

@@ -1,4 +1,5 @@
 using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MimeKit;
@@ -7,7 +8,7 @@ using Tnsu.Inventory.Application.Common.Interfaces;
 namespace Tnsu.Inventory.Infrastructure.Notifications;
 
 public sealed class SmtpNotificationService(
-    IOptions<SmtpOptions> smtpOptions,
+    IOptions<NotificationsOptions> notificationsOptions,
     ILogger<SmtpNotificationService> logger) : INotificationService
 {
     public Task SendApprovalReminderAsync(ApprovalNotification n, CancellationToken ct) =>
@@ -33,9 +34,35 @@ public sealed class SmtpNotificationService(
                 $"Документ {n.DocumentNumber} просрочен на шаге согласования.\n{n.LinkUrl}", ct);
     }
 
+    public Task SendAssignedForApprovalAsync(WorkflowNotification n, CancellationToken ct) =>
+        SendAsync(
+            n.RecipientEmail,
+            $"Документ на согласовании: {n.DocumentNumber}",
+            $"{n.RecipientName}, документ поступил на согласование.\n{n.LinkUrl}",
+            ct);
+
+    public Task SendApprovedAsync(WorkflowNotification n, CancellationToken ct) =>
+        SendAsync(
+            n.InitiatorEmail,
+            $"Документ согласован: {n.DocumentNumber}",
+            $"{n.InitiatorName}, документ согласован.\n{n.LinkUrl}",
+            ct);
+
+    public Task SendReturnedAsync(WorkflowNotification n, CancellationToken ct)
+    {
+        var body = string.IsNullOrWhiteSpace(n.Comment)
+            ? $"{n.InitiatorName}, документ возвращён на доработку.\n{n.LinkUrl}"
+            : $"{n.InitiatorName}, документ возвращён на доработку.\nКомментарий: {n.Comment.Trim()}\n{n.LinkUrl}";
+        return SendAsync(
+            n.InitiatorEmail,
+            $"Документ возвращён: {n.DocumentNumber}",
+            body,
+            ct);
+    }
+
     private async Task SendAsync(string to, string subject, string body, CancellationToken ct)
     {
-        var cfg = smtpOptions.Value;
+        var cfg = notificationsOptions.Value.Email;
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(cfg.FromName, cfg.FromEmail));
         message.To.Add(MailboxAddress.Parse(to));
@@ -45,7 +72,10 @@ public sealed class SmtpNotificationService(
         try
         {
             using var client = new SmtpClient();
-            await client.ConnectAsync(cfg.Host, cfg.Port, false, ct);
+            var socketOptions = cfg.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.None;
+            await client.ConnectAsync(cfg.Host, cfg.Port, socketOptions, ct);
+            if (cfg.HasCredentials)
+                await client.AuthenticateAsync(cfg.Username, cfg.Password, ct);
             await client.SendAsync(message, ct);
             await client.DisconnectAsync(true, ct);
         }

@@ -21,7 +21,8 @@ internal static class ApprovalStepLoader
             .FirstOrDefaultAsync(s => s.Id == stepId, ct)
             ?? throw new NotFoundException("ApprovalStep", stepId);
 
-        if (step.ApproverUserId != userId)
+        var isAdmin = currentUser.Role is MechanizationRole.ChiefMechanic or MechanizationRole.OmtsHead;
+        if (step.ApproverUserId != userId && !isAdmin)
             throw new ForbiddenException("Этот шаг назначен другому согласующему.");
 
         if (step.Status != ApprovalStepStatus.Pending)

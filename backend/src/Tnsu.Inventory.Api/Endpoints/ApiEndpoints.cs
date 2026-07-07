@@ -58,6 +58,24 @@ public static class ApiEndpoints
             Results.Ok(await m.Send(new CancelDefectActCommand(id, body.Comment), ct)));
         defects.MapGet("/{id:guid}/approvals", async (Guid id, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new GetDefectActApprovalsQuery(id), ct)));
+        defects.MapGet("/{id:guid}/attachments", async (Guid id, IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new ListDefectAttachmentsQuery(id), ct)));
+        defects.MapPost("/{id:guid}/attachments", async (
+            Guid id, HttpRequest request, IMediator m, CancellationToken ct) =>
+        {
+            if (!request.HasFormContentType)
+                return Results.BadRequest(new { message = "Ожидается multipart/form-data" });
+
+            var form = await request.ReadFormAsync(ct);
+            var file = form.Files.FirstOrDefault();
+            if (file is null) return Results.BadRequest(new { message = "Файл не передан" });
+
+            var category = form["category"].FirstOrDefault() ?? AttachmentCategories.General;
+            await using var stream = file.OpenReadStream();
+            var dto = await m.Send(new UploadDefectAttachmentCommand(
+                id, category, file.FileName, file.ContentType, stream), ct);
+            return Results.Created($"/api/attachments/{dto.Id}", dto);
+        }).DisableAntiforgery();
         defects.MapPost("/{id:guid}/purchase-request", async (Guid id, IMediator m, CancellationToken ct) =>
         {
             var dto = await m.Send(new CreatePurchaseFromDefectActCommand(id), ct);
@@ -333,6 +351,225 @@ public static class ApiEndpoints
             return Results.NoContent();
         });
 
+        admin.MapGet("/project-approval-route", async (
+            ICurrentUser current,
+            [FromQuery] Guid projectId,
+            InventoryDbContext db,
+            CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+
+            var users = await db.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive)
+                .OrderBy(u => u.FullName)
+                .Select(u => new AdminUserOptionDto(u.Id, u.FullName, u.Email, u.Role, MechanizationRole.Label(u.Role)))
+                .ToListAsync(ct);
+
+            var allowedRoles = new[] { MechanizationRole.Security, MechanizationRole.ProjectManager };
+            var currentAssignments = await db.ProjectApprovalAssignees
+                .AsNoTracking()
+                .Where(x => x.ProjectId == projectId && allowedRoles.Contains(x.Role))
+                .ToListAsync(ct);
+
+            var assignments = allowedRoles
+                .Select(role => new ApprovalRouteAssignmentDto(
+                    role,
+                    MechanizationRole.Label(role),
+                    currentAssignments.FirstOrDefault(x => x.Role == role)?.UserId))
+                .ToList();
+
+            return Results.Ok(new ApprovalRouteDto(assignments, users));
+        });
+
+        admin.MapPut("/project-approval-route", async (
+            ICurrentUser current,
+            [FromQuery] Guid projectId,
+            UpdateApprovalRouteRequest body,
+            InventoryDbContext db,
+            CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+            var allowedRoles = new HashSet<string> { MechanizationRole.Security, MechanizationRole.ProjectManager };
+            if (body.Assignments.Any(a => !allowedRoles.Contains(a.Role)))
+                return Results.BadRequest(new { message = "Допустимы только роли РП/Начальник участка и СБ." });
+
+            var selectedIds = body.Assignments.Select(a => a.UserId).ToList();
+            var users = await db.Users.Where(u => u.IsActive && selectedIds.Contains(u.Id)).ToListAsync(ct);
+            if (users.Count != selectedIds.Count)
+                return Results.BadRequest(new { message = "Часть выбранных пользователей недоступна." });
+
+            var existing = await db.ProjectApprovalAssignees
+                .Where(x => x.ProjectId == projectId && allowedRoles.Contains(x.Role))
+                .ToListAsync(ct);
+
+            foreach (var assignment in body.Assignments)
+            {
+                var row = existing.FirstOrDefault(x => x.Role == assignment.Role);
+                if (row is null)
+                {
+                    db.ProjectApprovalAssignees.Add(new Tnsu.Inventory.Domain.Entities.ProjectApprovalAssignee
+                    {
+                        ProjectId = projectId,
+                        Role = assignment.Role,
+                        UserId = assignment.UserId
+                    });
+                }
+                else
+                {
+                    row.UserId = assignment.UserId;
+                    row.UpdatedAt = DateTimeOffset.UtcNow;
+                }
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+
+        admin.MapGet("/documents/{documentType}/{id:guid}/approvers", async (
+            string documentType,
+            Guid id,
+            ICurrentUser current,
+            InventoryDbContext db,
+            CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+            if (documentType is not DocumentTypes.DefectAct and not DocumentTypes.PurchaseRequest)
+                return Results.BadRequest(new { message = "Неподдерживаемый тип документа." });
+
+            Guid projectId;
+            string status;
+            if (documentType == DocumentTypes.DefectAct)
+            {
+                var doc = await db.DefectActs.FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (doc is null) return Results.NotFound();
+                projectId = doc.ProjectId;
+                status = doc.Status;
+            }
+            else
+            {
+                var doc = await db.PurchaseRequests.FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (doc is null) return Results.NotFound();
+                projectId = doc.ProjectId;
+                status = doc.Status;
+            }
+
+            var roles = MechanizationRole.PurchaseApprovalRoles;
+            var users = await db.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive)
+                .OrderBy(u => u.FullName)
+                .Select(u => new AdminUserOptionDto(u.Id, u.FullName, u.Email, u.Role, MechanizationRole.Label(u.Role)))
+                .ToListAsync(ct);
+
+            var pendingSteps = await db.ApprovalSteps
+                .AsNoTracking()
+                .Where(s => (documentType == DocumentTypes.DefectAct ? s.DefectActId == id : s.PurchaseRequestId == id)
+                            && s.Status == ApprovalStepStatus.Pending)
+                .ToListAsync(ct);
+
+            var projectOverrides = await db.ProjectApprovalAssignees
+                .AsNoTracking()
+                .Where(x => x.ProjectId == projectId && roles.Contains(x.Role))
+                .ToListAsync(ct);
+            var docOverrides = await db.DocumentApprovalAssignees
+                .AsNoTracking()
+                .Where(x => documentType == DocumentTypes.DefectAct ? x.DefectActId == id : x.PurchaseRequestId == id)
+                .ToListAsync(ct);
+
+            var assignments = roles.Select(role =>
+            {
+                var pending = pendingSteps.FirstOrDefault(s => s.ApproverRole == role);
+                var userId = pending?.ApproverUserId
+                             ?? docOverrides.FirstOrDefault(x => x.Role == role)?.UserId
+                             ?? projectOverrides.FirstOrDefault(x => x.Role == role)?.UserId
+                             ?? users.FirstOrDefault(u => u.Role == role)?.Id;
+                return new ApprovalRouteAssignmentDto(role, MechanizationRole.Label(role), userId);
+            }).ToList();
+
+            return Results.Ok(new DocumentApproverSettingsDto(documentType, id, projectId, status, assignments, users));
+        });
+
+        admin.MapPut("/documents/{documentType}/{id:guid}/approvers", async (
+            string documentType,
+            Guid id,
+            ICurrentUser current,
+            UpdateApprovalRouteRequest body,
+            InventoryDbContext db,
+            CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+            if (documentType is not DocumentTypes.DefectAct and not DocumentTypes.PurchaseRequest)
+                return Results.BadRequest(new { message = "Неподдерживаемый тип документа." });
+            var allowedRoles = MechanizationRole.PurchaseApprovalRoles.ToHashSet();
+            if (body.Assignments.Any(a => !allowedRoles.Contains(a.Role)))
+                return Results.BadRequest(new { message = "Передана неподдерживаемая роль." });
+
+            var selectedIds = body.Assignments.Select(a => a.UserId).ToList();
+            var users = await db.Users.Where(u => u.IsActive && selectedIds.Contains(u.Id)).ToListAsync(ct);
+            if (users.Count != selectedIds.Count)
+                return Results.BadRequest(new { message = "Часть выбранных пользователей недоступна." });
+
+            string status;
+            if (documentType == DocumentTypes.DefectAct)
+            {
+                var doc = await db.DefectActs.FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (doc is null) return Results.NotFound();
+                status = doc.Status;
+            }
+            else
+            {
+                var doc = await db.PurchaseRequests.FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (doc is null) return Results.NotFound();
+                status = doc.Status;
+            }
+
+            var editableStatuses = new HashSet<string>
+            {
+                WorkflowStatus.Draft, WorkflowStatus.Returned, WorkflowStatus.OnCoordination, WorkflowStatus.OnFinalApproval
+            };
+            if (!editableStatuses.Contains(status))
+                return Results.BadRequest(new { message = "Смена согласующего доступна только для черновика, возврата или документов на согласовании." });
+
+            var existing = await db.DocumentApprovalAssignees
+                .Where(x => documentType == DocumentTypes.DefectAct ? x.DefectActId == id : x.PurchaseRequestId == id)
+                .ToListAsync(ct);
+
+            foreach (var assignment in body.Assignments)
+            {
+                var row = existing.FirstOrDefault(x => x.Role == assignment.Role);
+                if (row is null)
+                {
+                    db.DocumentApprovalAssignees.Add(new Tnsu.Inventory.Domain.Entities.DocumentApprovalAssignee
+                    {
+                        DefectActId = documentType == DocumentTypes.DefectAct ? id : null,
+                        PurchaseRequestId = documentType == DocumentTypes.PurchaseRequest ? id : null,
+                        Role = assignment.Role,
+                        UserId = assignment.UserId
+                    });
+                }
+                else
+                {
+                    row.UserId = assignment.UserId;
+                    row.UpdatedAt = DateTimeOffset.UtcNow;
+                }
+            }
+
+            var pendingSteps = await db.ApprovalSteps
+                .Where(s => (documentType == DocumentTypes.DefectAct ? s.DefectActId == id : s.PurchaseRequestId == id)
+                            && s.Status == ApprovalStepStatus.Pending)
+                .ToListAsync(ct);
+            foreach (var step in pendingSteps)
+            {
+                var assignment = body.Assignments.FirstOrDefault(a => a.Role == step.ApproverRole);
+                if (assignment is null) continue;
+                step.ApproverUserId = assignment.UserId;
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+
         return app;
     }
 
@@ -357,3 +594,10 @@ public sealed record ApprovalRouteDto(
     IReadOnlyList<AdminUserOptionDto> Users);
 public sealed record UpdateApprovalRouteAssignmentRequest(string Role, Guid UserId);
 public sealed record UpdateApprovalRouteRequest(IReadOnlyList<UpdateApprovalRouteAssignmentRequest> Assignments);
+public sealed record DocumentApproverSettingsDto(
+    string DocumentType,
+    Guid DocumentId,
+    Guid ProjectId,
+    string Status,
+    IReadOnlyList<ApprovalRouteAssignmentDto> Assignments,
+    IReadOnlyList<AdminUserOptionDto> Users);

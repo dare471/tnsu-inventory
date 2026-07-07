@@ -1,6 +1,6 @@
 # Механизация — заявки на закупку ТМЦ
 
-Автоматизация дефектных актов и заявок на закупку по направлению «Механизация».
+Дефектные акты и заявки на закупку ТМЦ, направление «Механизация».
 
 ## Стек
 
@@ -173,6 +173,8 @@ tnsu-Inventory/
 **Вложения** — `POST /api/purchase-requests/{id}/attachments`, SharePoint при `SharePoint:Enabled=true`.
 
 **Teams** — SLA-уведомления при `Teams:WebhookUrl`.
+
+**Email** — только для уведомлений, через `Notifications:Email` (`NOTIFICATIONS_EMAIL_*` в `.env`, учётка `portal@tnsu.kz`). Локально по умолчанию Mailhog.
 
 **Заказ поставщику** — `POST /api/purchase-requests/{id}/supplier-order`, интеграция с `Procurement:BaseUrl`.
 

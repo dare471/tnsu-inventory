@@ -17,7 +17,7 @@ public static class InfrastructureServiceCollectionExtensions
         this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<AppOptions>(configuration.GetSection(AppOptions.SectionName));
-        services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
+        services.Configure<NotificationsOptions>(configuration.GetSection(NotificationsOptions.SectionName));
         services.Configure<Dictionary1COptions>(configuration.GetSection(Dictionary1COptions.SectionName));
         services.Configure<SharePointOptions>(configuration.GetSection(SharePointOptions.SectionName));
         services.Configure<TeamsOptions>(configuration.GetSection(TeamsOptions.SectionName));

@@ -13,11 +13,12 @@ public static class ApprovalWorkflowBuilder
         IInventoryDbContext db,
         DefectAct act,
         Guid roundId,
+        IReadOnlyDictionary<string, Guid>? documentOverrides,
         int startFromOrder,
         CancellationToken ct)
     {
         var approvers = await ResolveRoleApproversAsync(
-            db, MechanizationRole.PurchaseApprovalRoles, ct);
+            db, MechanizationRole.PurchaseApprovalRoles, act.ProjectId, documentOverrides, ct);
 
         var steps = new List<ApprovalStep>();
         var order = 1;
@@ -57,11 +58,12 @@ public static class ApprovalWorkflowBuilder
         PurchaseRequest request,
         Guid roundId,
         IReadOnlySet<string> skipRoles,
+        IReadOnlyDictionary<string, Guid>? documentOverrides,
         int startFromOrder,
         CancellationToken ct)
     {
         var approvers = await ResolveRoleApproversAsync(
-            db, MechanizationRole.PurchaseApprovalRoles, ct);
+            db, MechanizationRole.PurchaseApprovalRoles, request.ProjectId, documentOverrides, ct);
 
         var steps = new List<ApprovalStep>();
         var order = 1;
@@ -117,17 +119,41 @@ public static class ApprovalWorkflowBuilder
     public static async Task<Dictionary<string, AppUser>> ResolveRoleApproversAsync(
         IInventoryDbContext db,
         IEnumerable<string> roles,
+        Guid projectId,
+        IReadOnlyDictionary<string, Guid>? documentOverrides,
         CancellationToken ct)
     {
         var roleSet = roles.ToHashSet();
         var users = await db.Users
             .Where(u => u.IsActive && roleSet.Contains(u.Role))
             .ToListAsync(ct);
+        var usersById = users.ToDictionary(u => u.Id);
+
+        var projectOverrides = await db.ProjectApprovalAssignees
+            .Where(x => x.ProjectId == projectId && roleSet.Contains(x.Role))
+            .ToListAsync(ct);
 
         var map = new Dictionary<string, AppUser>();
         foreach (var role in roleSet)
         {
-            var user = users.FirstOrDefault(u => u.Role == role);
+            AppUser? user = null;
+            if (documentOverrides is not null
+                && documentOverrides.TryGetValue(role, out var overrideUserId)
+                && usersById.TryGetValue(overrideUserId, out var overrideUser))
+            {
+                user = overrideUser;
+            }
+
+            if (user is null)
+            {
+                var projectOverride = projectOverrides.FirstOrDefault(x => x.Role == role);
+                if (projectOverride is not null && usersById.TryGetValue(projectOverride.UserId, out var projectUser))
+                    user = projectUser;
+            }
+
+            if (user is null)
+                user = users.FirstOrDefault(u => u.Role == role);
+
             if (user is null)
                 throw new ValidationFailedException(
                     $"Не назначен активный пользователь с ролью «{MechanizationRole.Label(role)}».");

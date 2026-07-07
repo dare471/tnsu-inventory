@@ -13,6 +13,7 @@ public static class DbInitializer
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
         await db.Database.EnsureCreatedAsync(ct);
+        await EnsureSchemaUpgradesAsync(db, ct);
 
         if (!await db.Users.AnyAsync(ct))
             await SeedDemoUsersAsync(db, ct);
@@ -21,6 +22,50 @@ public static class DbInitializer
 
         await ReassignLegacyMechanicDocumentsAsync(db, ct);
         await DemoDocumentSeeder.SeedAsync(db, ct);
+    }
+
+    private static async Task EnsureSchemaUpgradesAsync(InventoryDbContext db, CancellationToken ct)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS project_approval_assignees (
+                "Id" uuid PRIMARY KEY,
+                "ProjectId" uuid NOT NULL,
+                "Role" character varying(64) NOT NULL,
+                "UserId" uuid NOT NULL,
+                "UpdatedAt" timestamp with time zone NOT NULL
+            );
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_project_approval_assignees_ProjectId_Role"
+            ON project_approval_assignees ("ProjectId", "Role");
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS document_approval_assignees (
+                "Id" uuid PRIMARY KEY,
+                "DefectActId" uuid NULL,
+                "PurchaseRequestId" uuid NULL,
+                "Role" character varying(64) NOT NULL,
+                "UserId" uuid NOT NULL,
+                "UpdatedAt" timestamp with time zone NOT NULL
+            );
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_document_approval_assignees_DefectActId_Role"
+            ON document_approval_assignees ("DefectActId", "Role");
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_document_approval_assignees_PurchaseRequestId_Role"
+            ON document_approval_assignees ("PurchaseRequestId", "Role");
+            """, ct);
     }
 
     private static async Task EnsureEntraUsersAsync(InventoryDbContext db, CancellationToken ct)

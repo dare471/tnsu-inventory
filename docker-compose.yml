@@ -58,8 +58,13 @@ services:
       SharePoint__ClientSecret: ${SHAREPOINT_CLIENT_SECRET:-}
       Teams__WebhookUrl: ${TEAMS_WEBHOOK_URL:-}
       Procurement__BaseUrl: ${PROCUREMENT_BASE_URL:-}
-      Smtp__Host: mailhog
-      Smtp__Port: 1025
+      Notifications__Email__Host: ${NOTIFICATIONS_EMAIL_HOST:-mailhog}
+      Notifications__Email__Port: ${NOTIFICATIONS_EMAIL_PORT:-1025}
+      Notifications__Email__UseStartTls: ${NOTIFICATIONS_EMAIL_USE_STARTTLS:-false}
+      Notifications__Email__FromEmail: ${NOTIFICATIONS_EMAIL_FROM:-portal@tnsu.kz}
+      Notifications__Email__FromName: ${NOTIFICATIONS_EMAIL_FROM_NAME:-TNSU Portal}
+      Notifications__Email__Username: ${NOTIFICATIONS_EMAIL_USERNAME:-}
+      Notifications__Email__Password: ${NOTIFICATIONS_EMAIL_PASSWORD:-}
     ports:
       - "${API_PORT:-8081}:8080"
     volumes:

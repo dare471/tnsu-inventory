@@ -3,7 +3,14 @@ import { computed, h, onMounted, reactive, ref, watch } from 'vue';
 import {
   NAlert, NButton, NCard, NDataTable, NForm, NFormItem, NInput, NSelect, NSpace, NSwitch, NTag, type DataTableColumns
 } from 'naive-ui';
-import { inventoryApi, type AdminUserDto, type ApprovalRouteAssignmentDto, type AdminUserOptionDto, type ZupEmployeeDto } from '@/api/inventory';
+import {
+  inventoryApi,
+  type AdminUserDto,
+  type ApprovalRouteAssignmentDto,
+  type AdminUserOptionDto,
+  type ZupEmployeeDto,
+  type ProjectDto
+} from '@/api/inventory';
 import { toApiError } from '@/api/client';
 import { MECHANIZATION_ROLES } from '@/config/roles';
 import { EMPLOYER_COMPANY_OPTIONS } from '@/config/zup';
@@ -15,6 +22,19 @@ const success = ref('');
 const users = ref<AdminUserDto[]>([]);
 const routeAssignments = ref<ApprovalRouteAssignmentDto[]>([]);
 const routeUsers = ref<AdminUserOptionDto[]>([]);
+const projects = ref<ProjectDto[]>([]);
+const selectedProjectId = ref<string | null>(null);
+const projectRouteAssignments = ref<ApprovalRouteAssignmentDto[]>([]);
+const projectRouteDraft = reactive<Record<string, string>>({});
+const savingProjectRoute = ref(false);
+const docSettings = ref<{
+  assignments: ApprovalRouteAssignmentDto[];
+  users: AdminUserOptionDto[];
+} | null>(null);
+const docType = ref<'defect_act' | 'purchase_request'>('purchase_request');
+const docId = ref('');
+const docDraft = reactive<Record<string, string>>({});
+const savingDocApprovers = ref(false);
 
 const createForm = reactive({
   employerCompany: null as string | null,
@@ -72,11 +92,23 @@ watch(() => createForm.zupEmployeeId, (id) => {
   createForm.position = row.position;
   createForm.email = row.email;
 });
+watch(selectedProjectId, () => {
+  if (selectedProjectId.value) void loadProjectRoute();
+});
 
 const routeDraft = reactive<Record<string, string>>({});
 
 const userOptions = computed(() =>
   routeUsers.value.map((u) => ({
+    label: `${u.fullName} (${u.email})`,
+    value: u.id
+  }))
+);
+const projectOptions = computed(() =>
+  projects.value.map((p) => ({ label: `${p.code} — ${p.projectName}`, value: p.id }))
+);
+const documentUserOptions = computed(() =>
+  (docSettings.value?.users ?? []).map((u) => ({
     label: `${u.fullName} (${u.email})`,
     value: u.id
   }))
@@ -93,19 +125,31 @@ async function loadAll() {
   loading.value = true;
   error.value = '';
   try {
-    const [userList, route] = await Promise.all([
+    const [userList, route, projectList] = await Promise.all([
       inventoryApi.listAdminUsers(),
-      inventoryApi.getApprovalRoute()
+      inventoryApi.getApprovalRoute(),
+      inventoryApi.getProjects()
     ]);
     users.value = userList;
     routeAssignments.value = route.assignments;
     routeUsers.value = route.users;
+    projects.value = projectList;
     hydrateRouteDraft();
   } catch (e) {
     error.value = toApiError(e).detail;
   } finally {
     loading.value = false;
   }
+}
+
+async function loadProjectRoute() {
+  if (!selectedProjectId.value) return;
+  const route = await inventoryApi.getProjectApprovalRoute(selectedProjectId.value);
+  projectRouteAssignments.value = route.assignments;
+  Object.keys(projectRouteDraft).forEach((k) => delete projectRouteDraft[k]);
+  route.assignments.forEach((a) => {
+    projectRouteDraft[a.role] = a.userId ?? '';
+  });
 }
 
 async function createUser() {
@@ -178,6 +222,67 @@ async function saveRoute() {
     error.value = toApiError(e).detail || (e as Error).message;
   } finally {
     savingRoute.value = false;
+  }
+}
+
+async function saveProjectRoute() {
+  if (!selectedProjectId.value) return;
+  savingProjectRoute.value = true;
+  error.value = '';
+  success.value = '';
+  try {
+    const assignments = projectRouteAssignments.value.map((a) => ({
+      role: a.role,
+      userId: projectRouteDraft[a.role]
+    }));
+    if (assignments.some((a) => !a.userId))
+      throw new Error('Назначьте пользователя на каждую проектную роль.');
+    await inventoryApi.updateProjectApprovalRoute(selectedProjectId.value, {
+      assignments: assignments as Array<{ role: string; userId: string }>
+    });
+    success.value = 'Проектный маршрут сохранен.';
+  } catch (e) {
+    error.value = toApiError(e).detail || (e as Error).message;
+  } finally {
+    savingProjectRoute.value = false;
+  }
+}
+
+async function loadDocumentApprovers() {
+  if (!docId.value.trim()) {
+    error.value = 'Введите ID документа.';
+    return;
+  }
+  error.value = '';
+  success.value = '';
+  const data = await inventoryApi.getDocumentApprovers(docType.value, docId.value.trim());
+  docSettings.value = { assignments: data.assignments, users: data.users };
+  Object.keys(docDraft).forEach((k) => delete docDraft[k]);
+  data.assignments.forEach((a) => {
+    docDraft[a.role] = a.userId ?? '';
+  });
+}
+
+async function saveDocumentApprovers() {
+  if (!docSettings.value) return;
+  savingDocApprovers.value = true;
+  error.value = '';
+  success.value = '';
+  try {
+    const assignments = docSettings.value.assignments.map((a) => ({
+      role: a.role,
+      userId: docDraft[a.role]
+    }));
+    if (assignments.some((a) => !a.userId))
+      throw new Error('Назначьте пользователя на каждый шаг.');
+    await inventoryApi.updateDocumentApprovers(docType.value, docId.value.trim(), {
+      assignments: assignments as Array<{ role: string; userId: string }>
+    });
+    success.value = 'Согласующие документа обновлены.';
+  } catch (e) {
+    error.value = toApiError(e).detail || (e as Error).message;
+  } finally {
+    savingDocApprovers.value = false;
   }
 }
 
@@ -294,9 +399,6 @@ onMounted(() => {
       </NCard>
 
       <NCard title="Маршрут согласования (закупка/дефектный акт)" size="small">
-        <p style="margin:0 0 12px;color:var(--brand-text-muted)">
-          Для каждого шага выберите ровно одного активного пользователя.
-        </p>
         <NSpace vertical :size="10">
           <div
             v-for="step in routeAssignments"
@@ -315,6 +417,83 @@ onMounted(() => {
         </NSpace>
         <NSpace style="margin-top:14px">
           <NButton type="primary" :loading="savingRoute" @click="saveRoute">Сохранить маршрут</NButton>
+        </NSpace>
+      </NCard>
+
+      <NCard title="Проектные согласующие (РП/СБ)" size="small">
+        <NSpace vertical :size="12">
+          <NFormItem label="Проект">
+            <NSelect
+              v-model:value="selectedProjectId"
+              filterable
+              clearable
+              :options="projectOptions"
+              placeholder="Выберите проект"
+            />
+          </NFormItem>
+          <template v-if="selectedProjectId && projectRouteAssignments.length">
+            <div
+              v-for="step in projectRouteAssignments"
+              :key="`project-${step.role}`"
+              style="display:grid;grid-template-columns:240px 1fr;gap:12px;align-items:center"
+            >
+              <NTag type="warning">{{ step.roleLabel }}</NTag>
+              <NSelect
+                v-model:value="projectRouteDraft[step.role]"
+                filterable
+                clearable
+                :options="userOptions"
+                placeholder="Выберите пользователя"
+              />
+            </div>
+            <NSpace>
+              <NButton type="primary" :loading="savingProjectRoute" @click="saveProjectRoute">
+                Сохранить проектные назначения
+              </NButton>
+            </NSpace>
+          </template>
+        </NSpace>
+      </NCard>
+
+      <NCard title="Смена согласующего по документу" size="small">
+        <NSpace vertical :size="12">
+          <div style="display:grid;grid-template-columns:200px 1fr auto;gap:12px;align-items:end">
+            <NFormItem label="Тип документа">
+              <NSelect
+                v-model:value="docType"
+                :options="[
+                  { label: 'Дефектный акт', value: 'defect_act' },
+                  { label: 'Заявка', value: 'purchase_request' }
+                ]"
+              />
+            </NFormItem>
+            <NFormItem label="ID документа">
+              <NInput v-model:value="docId" placeholder="GUID документа" />
+            </NFormItem>
+            <NButton type="primary" @click="loadDocumentApprovers">Загрузить</NButton>
+          </div>
+
+          <template v-if="docSettings">
+            <div
+              v-for="step in docSettings.assignments"
+              :key="`doc-${step.role}`"
+              style="display:grid;grid-template-columns:240px 1fr;gap:12px;align-items:center"
+            >
+              <NTag type="info">{{ step.roleLabel }}</NTag>
+              <NSelect
+                v-model:value="docDraft[step.role]"
+                filterable
+                clearable
+                :options="documentUserOptions"
+                placeholder="Выберите пользователя"
+              />
+            </div>
+            <NSpace>
+              <NButton type="primary" :loading="savingDocApprovers" @click="saveDocumentApprovers">
+                Сохранить согласующих документа
+              </NButton>
+            </NSpace>
+          </template>
         </NSpace>
       </NCard>
     </NSpace>

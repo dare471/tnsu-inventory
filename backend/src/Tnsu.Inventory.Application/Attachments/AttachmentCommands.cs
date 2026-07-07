@@ -22,6 +22,13 @@ public sealed record UploadPurchaseAttachmentCommand(
     string ContentType,
     Stream Content) : IRequest<AttachmentDto>;
 
+public sealed record UploadDefectAttachmentCommand(
+    Guid DefectActId,
+    string Category,
+    string FileName,
+    string ContentType,
+    Stream Content) : IRequest<AttachmentDto>;
+
 public sealed class UploadPurchaseAttachmentHandler(
     IInventoryDbContext db,
     IAttachmentStorage storage,
@@ -77,6 +84,56 @@ public sealed class UploadPurchaseAttachmentHandler(
     }
 }
 
+public sealed class UploadDefectAttachmentHandler(
+    IInventoryDbContext db,
+    IAttachmentStorage storage,
+    ICurrentUser currentUser) : IRequestHandler<UploadDefectAttachmentCommand, AttachmentDto>
+{
+    public async Task<AttachmentDto> Handle(UploadDefectAttachmentCommand cmd, CancellationToken ct)
+    {
+        var userId = currentUser.UserId ?? throw new UnauthorizedException();
+        var act = await db.DefectActs.FirstOrDefaultAsync(r => r.Id == cmd.DefectActId, ct)
+            ?? throw new NotFoundException("DefectAct", cmd.DefectActId);
+
+        if (act.Status is not Domain.Enums.WorkflowStatus.Draft
+            and not Domain.Enums.WorkflowStatus.Returned)
+            throw new ConflictException("not_editable", "Вложения можно добавлять только в черновике или после возврата.");
+
+        if (currentUser.UserId != act.CreatedByUserId)
+            throw new ForbiddenException("Только автор может прикреплять файлы.");
+
+        using var buffer = new MemoryStream();
+        await cmd.Content.CopyToAsync(buffer, ct);
+        buffer.Position = 0;
+        var sizeBytes = buffer.Length;
+
+        var storagePath = await storage.SaveAsync(buffer, cmd.FileName, ct);
+        var sharePointUrl = storage is ISharePointAwareStorage sp
+            ? await sp.GetPublicUrlAsync(storagePath, ct)
+            : null;
+
+        var attachment = new DocumentAttachment
+        {
+            DocumentType = DocumentTypes.DefectAct,
+            DefectActId = act.Id,
+            Category = cmd.Category,
+            FileName = cmd.FileName,
+            ContentType = cmd.ContentType,
+            SizeBytes = sizeBytes,
+            StoragePath = storagePath,
+            SharePointUrl = sharePointUrl,
+            UploadedByUserId = userId
+        };
+
+        db.Attachments.Add(attachment);
+        act.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return new AttachmentDto(attachment.Id, attachment.FileName, attachment.Category,
+            attachment.SizeBytes, attachment.SharePointUrl, attachment.UploadedAt);
+    }
+}
+
 public sealed record ListPurchaseAttachmentsQuery(Guid PurchaseRequestId) : IRequest<IReadOnlyList<AttachmentDto>>;
 
 public sealed class ListPurchaseAttachmentsHandler(IInventoryDbContext db)
@@ -85,6 +142,19 @@ public sealed class ListPurchaseAttachmentsHandler(IInventoryDbContext db)
     public async Task<IReadOnlyList<AttachmentDto>> Handle(ListPurchaseAttachmentsQuery q, CancellationToken ct) =>
         await db.Attachments.AsNoTracking()
             .Where(a => a.PurchaseRequestId == q.PurchaseRequestId)
+            .OrderByDescending(a => a.UploadedAt)
+            .Select(a => new AttachmentDto(a.Id, a.FileName, a.Category, a.SizeBytes, a.SharePointUrl, a.UploadedAt))
+            .ToListAsync(ct);
+}
+
+public sealed record ListDefectAttachmentsQuery(Guid DefectActId) : IRequest<IReadOnlyList<AttachmentDto>>;
+
+public sealed class ListDefectAttachmentsHandler(IInventoryDbContext db)
+    : IRequestHandler<ListDefectAttachmentsQuery, IReadOnlyList<AttachmentDto>>
+{
+    public async Task<IReadOnlyList<AttachmentDto>> Handle(ListDefectAttachmentsQuery q, CancellationToken ct) =>
+        await db.Attachments.AsNoTracking()
+            .Where(a => a.DefectActId == q.DefectActId)
             .OrderByDescending(a => a.UploadedAt)
             .Select(a => new AttachmentDto(a.Id, a.FileName, a.Category, a.SizeBytes, a.SharePointUrl, a.UploadedAt))
             .ToListAsync(ct);

@@ -64,6 +64,7 @@ public sealed record DefectActListItemDto(
     string StatusLabel,
     string ProjectName,
     string VehicleName,
+    string InitiatorFullName,
     string StateNumber,
     DateTimeOffset CreatedAt);
 
@@ -74,11 +75,13 @@ public sealed record ApprovalStepDto(
     string ApproverRoleLabel,
     string ApproverFullName,
     string Status,
+    string StatusLabel,
     string? Action,
     string? Comment,
     bool RequiresDigitalSignature,
     DateTimeOffset? AssignedAt,
-    DateTimeOffset? DecidedAt);
+    DateTimeOffset? DecidedAt,
+    DateTimeOffset? StatusDate);
 
 public sealed record InboxItemDto(
     Guid StepId,

@@ -70,6 +70,8 @@ public sealed record PurchaseRequestListItemDto(
     string StatusLabel,
     string ProjectName,
     string VehicleName,
+    string InitiatorFullName,
+    string? CurrentApproverFullName,
     decimal EstimatedAmount,
     DateTimeOffset CreatedAt);
 

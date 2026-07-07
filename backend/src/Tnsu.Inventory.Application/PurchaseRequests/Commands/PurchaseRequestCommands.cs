@@ -129,7 +129,10 @@ public sealed class UpdatePurchaseRequestHandler(IInventoryDbContext db, ICurren
 
 public sealed record SubmitPurchaseRequestCommand(Guid Id) : IRequest<PurchaseRequestDto>;
 
-public sealed class SubmitPurchaseRequestHandler(IInventoryDbContext db, ICurrentUser currentUser)
+public sealed class SubmitPurchaseRequestHandler(
+    IInventoryDbContext db,
+    ICurrentUser currentUser,
+    INotificationService notifications)
     : IRequestHandler<SubmitPurchaseRequestCommand, PurchaseRequestDto>
 {
     public async Task<PurchaseRequestDto> Handle(SubmitPurchaseRequestCommand cmd, CancellationToken ct)
@@ -156,7 +159,10 @@ public sealed class SubmitPurchaseRequestHandler(IInventoryDbContext db, ICurren
                 .Where(s => s.DefectActId == defectActId)
                 .ToListAsync(ct);
             var latestRound = ApprovalWorkflowBuilder.LatestRoundSteps(defectSteps);
-            skipRoles = ApprovalWorkflowBuilder.CollectApprovedRoles(latestRound);
+            var approvedRoles = ApprovalWorkflowBuilder.CollectApprovedRoles(latestRound).ToHashSet();
+            approvedRoles.Remove(MechanizationRole.ProjectStorekeeper);
+            approvedRoles.Remove(MechanizationRole.ChiefMechanic);
+            skipRoles = approvedRoles;
         }
 
         var startFrom = request.Status == WorkflowStatus.Returned && request.ResumeFromReturnStep
@@ -164,8 +170,11 @@ public sealed class SubmitPurchaseRequestHandler(IInventoryDbContext db, ICurren
             : 1;
 
         var roundId = Guid.NewGuid();
+        var overrides = await db.DocumentApprovalAssignees
+            .Where(x => x.PurchaseRequestId == request.Id)
+            .ToDictionaryAsync(x => x.Role, x => x.UserId, ct);
         var steps = await ApprovalWorkflowBuilder.BuildPurchaseRequestStepsAsync(
-            db, request, roundId, skipRoles, startFrom, ct);
+            db, request, roundId, skipRoles, overrides, startFrom, ct);
 
         if (!steps.Any(s => s.Status == ApprovalStepStatus.Pending))
         {
@@ -178,6 +187,14 @@ public sealed class SubmitPurchaseRequestHandler(IInventoryDbContext db, ICurren
         request.UpdatedAt = DateTimeOffset.UtcNow;
         db.ApprovalSteps.AddRange(steps);
         await db.SaveChangesAsync(ct);
+
+        var firstPendingStep = steps.FirstOrDefault(s => s.Status == ApprovalStepStatus.Pending);
+        if (firstPendingStep is not null)
+        {
+            var assignedNotification = await Approvals.Commands.WorkflowNotificationFactory
+                .BuildAssignedAsync(db, firstPendingStep, ct);
+            await notifications.SendAssignedForApprovalAsync(assignedNotification, ct);
+        }
 
         return await PurchaseRequestMapper.ToDtoAsync(db, request.Id, currentUser, ct);
     }

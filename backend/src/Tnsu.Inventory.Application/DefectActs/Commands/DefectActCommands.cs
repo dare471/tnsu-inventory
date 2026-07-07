@@ -108,7 +108,10 @@ public sealed class UpdateDefectActHandler(IInventoryDbContext db, ICurrentUser 
 
 public sealed record SubmitDefectActCommand(Guid Id) : IRequest<DefectActDto>;
 
-public sealed class SubmitDefectActHandler(IInventoryDbContext db, ICurrentUser currentUser)
+public sealed class SubmitDefectActHandler(
+    IInventoryDbContext db,
+    ICurrentUser currentUser,
+    INotificationService notifications)
     : IRequestHandler<SubmitDefectActCommand, DefectActDto>
 {
     public async Task<DefectActDto> Handle(SubmitDefectActCommand cmd, CancellationToken ct)
@@ -131,8 +134,11 @@ public sealed class SubmitDefectActHandler(IInventoryDbContext db, ICurrentUser 
             : 1;
 
         var roundId = Guid.NewGuid();
+        var overrides = await db.DocumentApprovalAssignees
+            .Where(x => x.DefectActId == act.Id)
+            .ToDictionaryAsync(x => x.Role, x => x.UserId, ct);
         var steps = await Workflow.ApprovalWorkflowBuilder.BuildDefectActStepsAsync(
-            db, act, roundId, startFrom, ct);
+            db, act, roundId, overrides, startFrom, ct);
 
         if (steps.Count == 0)
             throw new ValidationFailedException("Нет шагов согласования для запуска маршрута.");
@@ -141,6 +147,11 @@ public sealed class SubmitDefectActHandler(IInventoryDbContext db, ICurrentUser 
         act.UpdatedAt = DateTimeOffset.UtcNow;
         db.ApprovalSteps.AddRange(steps);
         await db.SaveChangesAsync(ct);
+
+        var firstPendingStep = steps.First(s => s.Status == ApprovalStepStatus.Pending);
+        var assignedNotification = await Approvals.Commands.WorkflowNotificationFactory
+            .BuildAssignedAsync(db, firstPendingStep, ct);
+        await notifications.SendAssignedForApprovalAsync(assignedNotification, ct);
 
         return await DefectActMapper.ToDtoAsync(db, act.Id, currentUser, ct);
     }

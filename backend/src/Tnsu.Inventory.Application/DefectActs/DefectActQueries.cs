@@ -77,7 +77,7 @@ public sealed class ListDefectActsHandler(IInventoryDbContext db)
         return await query.OrderByDescending(a => a.CreatedAt).Take(200)
             .Select(a => new DefectActListItemDto(
             a.Id, a.Number, a.Status, WorkflowStatus.Label(a.Status),
-            a.ProjectName, a.VehicleName, a.StateNumber, a.CreatedAt)).ToListAsync(ct);
+            a.ProjectName, a.VehicleName, a.CreatedBy!.FullName, a.StateNumber, a.CreatedAt)).ToListAsync(ct);
     }
 }
 
@@ -94,8 +94,8 @@ public sealed class GetDefectActApprovalsHandler(IInventoryDbContext db)
             .OrderBy(s => s.OrderNo)
             .Select(s => new ApprovalStepDto(
                 s.Id, s.OrderNo, s.ApproverRole, MechanizationRole.Label(s.ApproverRole),
-                s.Approver!.FullName, s.Status, s.Action, s.Comment,
-                s.RequiresDigitalSignature, s.AssignedAt, s.DecidedAt))
+                s.Approver!.FullName, s.Status, ApprovalStepStatus.Label(s.Status), s.Action, s.Comment,
+                s.RequiresDigitalSignature, s.AssignedAt, s.DecidedAt, s.DecidedAt ?? s.AssignedAt))
             .ToListAsync(ct);
     }
 }

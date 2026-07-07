@@ -11,6 +11,7 @@ import { appBrand } from '@/config/branding';
 import { getEmbedOptions, isEmbedMode } from '@/embed/options';
 import { toApiError } from '@/api/client';
 import { ADMIN_ROLES } from '@/config/roles';
+import { inventoryApi } from '@/api/inventory';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -18,6 +19,7 @@ const route = useRoute();
 const embed = getEmbedOptions();
 const spfxMode = isEmbedMode();
 const authError = ref('');
+const inboxCount = ref(0);
 
 const SIDEBAR_COLLAPSED_KEY = 'inventory.sidebar.collapsed';
 const sidebarCollapsed = ref(false);
@@ -31,6 +33,13 @@ onMounted(async () => {
     } catch (e) {
       authError.value = toApiError(e).detail || 'Не удалось авторизоваться через SharePoint';
     }
+  }
+
+  try {
+    const inbox = await inventoryApi.getInbox();
+    inboxCount.value = inbox.length;
+  } catch {
+    inboxCount.value = 0;
   }
 });
 
@@ -79,6 +88,10 @@ const items = computed(() => {
 const showEmbedNav = computed(() => spfxMode && items.value.length > 1);
 
 const activeName = computed(() => route.name?.toString() ?? '');
+const renderedLabel = (item: NavItem) =>
+  item.name === 'inbox' && inboxCount.value > 0
+    ? `${item.label} (${inboxCount.value})`
+    : item.label;
 
 function go(item: NavItem) {
   router.push({ name: item.name });
@@ -125,10 +138,10 @@ const userInitials = computed(() => {
                 @click="go(item)"
               >
                 <NIcon :component="item.icon" size="20" class="t-sidebar__icon" />
-                <span class="t-sidebar__label" :title="item.label">{{ item.label }}</span>
+                <span class="t-sidebar__label" :title="renderedLabel(item)">{{ renderedLabel(item) }}</span>
               </div>
             </template>
-            {{ item.label }}
+            {{ renderedLabel(item) }}
           </NTooltip>
           <div
             v-else
@@ -138,7 +151,7 @@ const userInitials = computed(() => {
             @click="go(item)"
           >
             <NIcon :component="item.icon" size="20" class="t-sidebar__icon" />
-            <span class="t-sidebar__label" :title="item.label">{{ item.label }}</span>
+            <span class="t-sidebar__label" :title="renderedLabel(item)">{{ renderedLabel(item) }}</span>
           </div>
         </template>
       </nav>
@@ -210,7 +223,7 @@ const userInitials = computed(() => {
             <template #icon>
               <NIcon :component="item.icon" />
             </template>
-            {{ item.label }}
+            {{ renderedLabel(item) }}
           </NButton>
         </NSpace>
 

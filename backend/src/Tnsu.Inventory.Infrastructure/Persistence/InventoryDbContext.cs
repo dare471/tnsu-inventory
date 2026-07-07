@@ -13,6 +13,8 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
     public DbSet<PurchaseRequest> PurchaseRequests => Set<PurchaseRequest>();
     public DbSet<PurchaseRequestLine> PurchaseRequestLines => Set<PurchaseRequestLine>();
     public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
+    public DbSet<ProjectApprovalAssignee> ProjectApprovalAssignees => Set<ProjectApprovalAssignee>();
+    public DbSet<DocumentApprovalAssignee> DocumentApprovalAssignees => Set<DocumentApprovalAssignee>();
     public DbSet<DocumentAttachment> Attachments => Set<DocumentAttachment>();
     public DbSet<SupplierOrder> SupplierOrders => Set<SupplierOrder>();
 
@@ -83,6 +85,27 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
             e.Property(x => x.Category).HasMaxLength(64);
             e.HasOne(x => x.DefectAct).WithMany(x => x.Attachments).HasForeignKey(x => x.DefectActId);
             e.HasOne(x => x.PurchaseRequest).WithMany(x => x.Attachments).HasForeignKey(x => x.PurchaseRequestId);
+        });
+
+        modelBuilder.Entity<ProjectApprovalAssignee>(e =>
+        {
+            e.ToTable("project_approval_assignees");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Role).HasMaxLength(64).IsRequired();
+            e.HasIndex(x => new { x.ProjectId, x.Role }).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
+        });
+
+        modelBuilder.Entity<DocumentApprovalAssignee>(e =>
+        {
+            e.ToTable("document_approval_assignees");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Role).HasMaxLength(64).IsRequired();
+            e.HasIndex(x => new { x.DefectActId, x.Role }).IsUnique();
+            e.HasIndex(x => new { x.PurchaseRequestId, x.Role }).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
+            e.HasOne(x => x.DefectAct).WithMany().HasForeignKey(x => x.DefectActId);
+            e.HasOne(x => x.PurchaseRequest).WithMany().HasForeignKey(x => x.PurchaseRequestId);
         });
 
         modelBuilder.Entity<SupplierOrder>(e =>

@@ -81,4 +81,40 @@ public sealed class CompositeNotificationService(
             $"Документ не обработан {n.PendingWorkingDays} раб. дн. Ответственный: {n.RecipientName}",
             n.LinkUrl, emails, ct);
     }
+
+    public async Task SendAssignedForApprovalAsync(WorkflowNotification n, CancellationToken ct)
+    {
+        await smtp.SendAssignedForApprovalAsync(n, ct);
+        await teams.SendAdaptiveCardAsync(
+            $"На согласовании: {n.DocumentNumber}",
+            $"{n.RecipientName}, документ поступил на согласование.",
+            n.LinkUrl,
+            [n.RecipientEmail],
+            ct);
+    }
+
+    public async Task SendApprovedAsync(WorkflowNotification n, CancellationToken ct)
+    {
+        await smtp.SendApprovedAsync(n, ct);
+        await teams.SendAdaptiveCardAsync(
+            $"Согласовано: {n.DocumentNumber}",
+            $"{n.InitiatorName}, документ согласован.",
+            n.LinkUrl,
+            [n.InitiatorEmail],
+            ct);
+    }
+
+    public async Task SendReturnedAsync(WorkflowNotification n, CancellationToken ct)
+    {
+        await smtp.SendReturnedAsync(n, ct);
+        var text = string.IsNullOrWhiteSpace(n.Comment)
+            ? $"{n.InitiatorName}, документ возвращён на доработку."
+            : $"{n.InitiatorName}, документ возвращён на доработку. Комментарий: {n.Comment}";
+        await teams.SendAdaptiveCardAsync(
+            $"Возврат на доработку: {n.DocumentNumber}",
+            text,
+            n.LinkUrl,
+            [n.InitiatorEmail],
+            ct);
+    }
 }

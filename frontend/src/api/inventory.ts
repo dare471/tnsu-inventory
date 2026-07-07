@@ -35,6 +35,17 @@ export const inventoryApi = {
     apiClient.post(`/api/approvals/${stepId}/reject`, { comment }),
   getDefectApprovals: (id: string) =>
     apiClient.get<ApprovalStepDto[]>(`/api/defect-acts/${id}/approvals`).then((r) => r.data),
+  listDefectAttachments: (id: string) =>
+    apiClient.get<AttachmentDto[]>(`/api/defect-acts/${id}/attachments`).then((r) => r.data),
+  uploadDefectAttachment: async (id: string, file: File, category: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('category', category);
+    const res = await apiClient.post<AttachmentDto>(`/api/defect-acts/${id}/attachments`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return res.data;
+  },
   getPurchaseApprovals: (id: string) =>
     apiClient.get<ApprovalStepDto[]>(`/api/purchase-requests/${id}/approvals`).then((r) => r.data),
   printDefectAct: (id: string) => openPrintDocument(`/api/defect-acts/${id}/print`),
@@ -74,7 +85,15 @@ export const inventoryApi = {
     apiClient.put<AdminUserDto>(`/api/admin/users/${id}`, body).then((r) => r.data),
   getApprovalRoute: () => apiClient.get<ApprovalRouteDto>('/api/admin/approval-route').then((r) => r.data),
   updateApprovalRoute: (body: UpdateApprovalRouteRequest) =>
-    apiClient.put('/api/admin/approval-route', body)
+    apiClient.put('/api/admin/approval-route', body),
+  getProjectApprovalRoute: (projectId: string) =>
+    apiClient.get<ApprovalRouteDto>('/api/admin/project-approval-route', { params: { projectId } }).then((r) => r.data),
+  updateProjectApprovalRoute: (projectId: string, body: UpdateApprovalRouteRequest) =>
+    apiClient.put('/api/admin/project-approval-route', body, { params: { projectId } }),
+  getDocumentApprovers: (documentType: string, documentId: string) =>
+    apiClient.get<DocumentApproverSettingsDto>(`/api/admin/documents/${documentType}/${documentId}/approvers`).then((r) => r.data),
+  updateDocumentApprovers: (documentType: string, documentId: string, body: UpdateApprovalRouteRequest) =>
+    apiClient.put(`/api/admin/documents/${documentType}/${documentId}/approvers`, body)
 };
 
 export interface ProjectDto { id: string; code: string; projectName: string }
@@ -97,7 +116,7 @@ export interface UpdateDefectActRequest {
 }
 export interface DefectActListItem {
   id: string; number: string; status: string; statusLabel: string;
-  projectName: string; vehicleName: string; stateNumber: string; createdAt: string;
+  projectName: string; vehicleName: string; initiatorFullName: string; stateNumber: string; createdAt: string;
 }
 export interface DefectActDto extends DefectActListItem {
   projectId: string; projectCode: string; vehicleId: string;
@@ -117,7 +136,9 @@ export interface CreatePurchaseRequestRequest {
 }
 export interface PurchaseRequestListItem {
   id: string; number: string; status: string; statusLabel: string;
-  projectName: string; vehicleName: string; estimatedAmount: number; createdAt: string;
+  projectName: string; vehicleName: string; initiatorFullName: string;
+  currentApproverFullName?: string;
+  estimatedAmount: number; createdAt: string;
 }
 export interface PurchaseRequestDto extends PurchaseRequestListItem {
   defectActId?: string; defectActNumber?: string;
@@ -135,8 +156,8 @@ export interface InboxItem {
 }
 export interface ApprovalStepDto {
   id: string; orderNo: number; approverRoleLabel: string;
-  approverFullName: string; status: string; action?: string;
-  comment?: string; decidedAt?: string;
+  approverFullName: string; status: string; statusLabel: string; action?: string;
+  comment?: string; assignedAt?: string; decidedAt?: string; statusDate?: string;
 }
 export interface ProjectSectionDto { id: string; projectId: string; code: string; name: string }
 export interface WorkTypeDto { id: string; code: string; name: string }
@@ -196,4 +217,12 @@ export interface ApprovalRouteDto {
 }
 export interface UpdateApprovalRouteRequest {
   assignments: Array<{ role: string; userId: string }>;
+}
+export interface DocumentApproverSettingsDto {
+  documentType: string;
+  documentId: string;
+  projectId: string;
+  status: string;
+  assignments: ApprovalRouteAssignmentDto[];
+  users: AdminUserOptionDto[];
 }
