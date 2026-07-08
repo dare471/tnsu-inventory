@@ -53,6 +53,7 @@ services:
       App__AttachmentStoragePath: /var/lib/tnsu-inventory/attachments
       App__DefectActPageUrl: ${SHAREPOINT_DEFECT_ACT_PAGE_URL:-}
       App__PurchaseRequestPageUrl: ${SHAREPOINT_PURCHASE_REQUEST_PAGE_URL:-}
+      App__ListsPageUrl: ${SHAREPOINT_LISTS_PAGE_URL:-}
       SharePoint__Enabled: ${SHAREPOINT_ENABLED:-false}
       SharePoint__SiteUrl: ${SHAREPOINT_SITE_URL:-https://tnsukz.sharepoint.com/sites/kps}
       SharePoint__TenantId: ${SHAREPOINT_TENANT_ID:-}

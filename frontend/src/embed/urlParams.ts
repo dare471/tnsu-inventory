@@ -1,6 +1,7 @@
-import type { EmbedMode } from './options';
+import type { EmbedDocumentType, EmbedMode } from './options';
 
 const COMMON_KEYS = ['documentId', 'docid', 'id'];
+const DOC_TYPE_KEYS = ['doctype', 'documenttype', 'type'];
 
 const KEYS_BY_MODE: Partial<Record<EmbedMode, string[]>> = {
   'purchase-request-form': ['purchaserequestid', 'requestid'],
@@ -23,6 +24,20 @@ export function readDocumentIdFromUrl(mode: EmbedMode): string | undefined {
 
 export function resolveEmbedDocumentId(mode: EmbedMode, propertyId?: string): string | undefined {
   return readDocumentIdFromUrl(mode) || propertyId?.trim() || undefined;
+}
+
+export function readDocumentTypeFromUrl(): EmbedDocumentType | undefined {
+  const params = new URLSearchParams(window.location.search);
+  const entries = [...params.entries()].map(([name, value]) => [name.toLowerCase(), value] as const);
+
+  for (const key of DOC_TYPE_KEYS) {
+    const raw = entries.find(([name]) => name === key)?.[1]?.trim().toLowerCase();
+    if (!raw) continue;
+    if (raw === 'defect_act' || raw === 'defect-act' || raw === 'defectact') return 'defect_act';
+    if (raw === 'purchase_request' || raw === 'purchase-request' || raw === 'purchaserequest') return 'purchase_request';
+  }
+
+  return undefined;
 }
 
 export function readEmbedViewFromUrl(): 'admin-users' | undefined {

@@ -53,6 +53,9 @@ function routesForMode(mode: EmbedMode, documentId?: string): RouteRecordRaw[] {
 
 function initialRouteName(embed: NonNullable<ReturnType<typeof getEmbedOptions>>) {
   if (embed.mode === 'lists') {
+    if (embed.documentId && embed.documentType) {
+      return embed.documentType === 'defect_act' ? 'defect-act-detail' : 'purchase-request-detail';
+    }
     return embed.initialList ?? 'defect-acts';
   }
   if (embed.mode === 'defect-act-form') {

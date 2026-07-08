@@ -3,7 +3,7 @@ import { createPinia } from 'pinia';
 import AppRoot from '@/App.vue';
 import { createEmbedRouter } from './router';
 import { type EmbedOptions } from './options';
-import { resolveEmbedDocumentId } from './urlParams';
+import { readDocumentTypeFromUrl, resolveEmbedDocumentId } from './urlParams';
 import 'vfonts/Lato.css';
 import '@/styles/app.css';
 
@@ -16,7 +16,8 @@ export async function mountMechanizationEmbed(
 ): Promise<MountedApp> {
   window.__MECH_EMBED__ = {
     ...options,
-    documentId: resolveEmbedDocumentId(options.mode, options.documentId)
+    documentId: resolveEmbedDocumentId(options.mode, options.documentId),
+    documentType: options.documentType ?? readDocumentTypeFromUrl()
   };
 
   if (getToken) {
