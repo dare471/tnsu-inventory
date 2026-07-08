@@ -25,6 +25,10 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
   config.baseURL = getApiBaseUrl();
 
   const url = String(config.url ?? '');
+  if (isSpfxEmbed()) {
+    (config as InternalAxiosRequestConfig & { __startedAt?: number }).__startedAt = Date.now();
+    console.info('[Mechanization] → request', config.method?.toUpperCase(), `${config.baseURL}${url}`);
+  }
   const isAnonymousAuth = url.includes('/api/auth/dev-login');
 
   if (!isAnonymousAuth) {
@@ -87,10 +91,21 @@ function isSpfxEmbed(): boolean {
 }
 
 apiClient.interceptors.response.use(
-  (r) => r,
+  (r) => {
+    if (isSpfxEmbed()) {
+      const started = (r.config as InternalAxiosRequestConfig & { __startedAt?: number }).__startedAt;
+      const ms = started ? Date.now() - started : undefined;
+      console.info('[Mechanization] ← response', r.status, `${r.config.baseURL ?? ''}${r.config.url ?? ''}`, ms ? `${ms}ms` : '');
+    }
+    return r;
+  },
   (error) => {
     const status = error?.response?.status;
     const requestUrl = String(error?.config?.url ?? '');
+    if (isSpfxEmbed()) {
+      const fullUrl = `${error?.config?.baseURL ?? ''}${requestUrl}`;
+      console.error('[Mechanization] ✕ failed', status ?? error?.code ?? 'ERR', fullUrl, error?.message ?? '');
+    }
     const isAuthRequest =
       requestUrl.includes('/api/auth/dev-login') ||
       (requestUrl.includes('/api/auth/me') && window.location.pathname.startsWith('/login'));

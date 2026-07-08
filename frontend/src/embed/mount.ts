@@ -20,6 +20,13 @@ export async function mountMechanizationEmbed(
     documentType: options.documentType ?? readDocumentTypeFromUrl()
   };
 
+  console.info(
+    '[Mechanization] embed options',
+    JSON.stringify(window.__MECH_EMBED__),
+    '| location.search =',
+    window.location.search
+  );
+
   if (getToken) {
     window.__MECH_GET_TOKEN__ = getToken;
   }
