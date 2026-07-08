@@ -11,6 +11,7 @@ public class PurchaseRequest
     public string ProjectName { get; set; } = string.Empty;
     public Guid VehicleId { get; set; }
     public string VehicleName { get; set; } = string.Empty;
+    public string VehicleGroupName { get; set; } = string.Empty;
     public string StateNumber { get; set; } = string.Empty;
     public string VinCode { get; set; } = string.Empty;
     public int? VehicleYear { get; set; }

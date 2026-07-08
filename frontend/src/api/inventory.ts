@@ -24,6 +24,8 @@ export const inventoryApi = {
     apiClient.get<PurchaseRequestDto>(`/api/purchase-requests/${id}`).then((r) => r.data),
   createPurchaseRequest: (body: CreatePurchaseRequestRequest) =>
     apiClient.post<PurchaseRequestDto>('/api/purchase-requests', body).then((r) => r.data),
+  updatePurchaseRequest: (id: string, body: UpdatePurchaseRequestRequest) =>
+    apiClient.put<PurchaseRequestDto>(`/api/purchase-requests/${id}`, body).then((r) => r.data),
   submitPurchaseRequest: (id: string) =>
     apiClient.post<PurchaseRequestDto>(`/api/purchase-requests/${id}/submit`).then((r) => r.data),
   getInbox: () => apiClient.get<InboxItem[]>('/api/approvals/inbox').then((r) => r.data),
@@ -131,8 +133,12 @@ export interface PurchaseRequestLineInput {
 }
 export interface CreatePurchaseRequestRequest {
   defectActId?: string; projectId: string; projectCode: string; projectName: string;
-  vehicleId: string; vehicleName: string; stateNumber: string; vinCode: string;
+  vehicleId: string; vehicleName: string; vehicleGroupName: string;
+  stateNumber: string; vinCode: string;
   vehicleYear?: number; description: string; lines: PurchaseRequestLineInput[];
+}
+export interface UpdatePurchaseRequestRequest {
+  description: string; lines: PurchaseRequestLineInput[];
 }
 export interface PurchaseRequestListItem {
   id: string; number: string; status: string; statusLabel: string;
@@ -143,6 +149,7 @@ export interface PurchaseRequestListItem {
 export interface PurchaseRequestDto extends PurchaseRequestListItem {
   defectActId?: string; defectActNumber?: string;
   projectId: string; projectCode: string; vehicleId: string;
+  vehicleGroupName: string;
   stateNumber: string; vinCode: string; vehicleYear?: number;
   description: string; hasServiceNoteAttachment: boolean;
   createdByFullName: string; assignedExecutorFullName?: string;

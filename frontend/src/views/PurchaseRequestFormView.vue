@@ -24,6 +24,7 @@ const projectCode = ref('');
 const projectName = ref('');
 const vehicleId = ref('');
 const vehicleName = ref('');
+const vehicleGroupName = ref('');
 const stateNumber = ref('');
 const vinCode = ref('');
 const vehicleYear = ref<number | null>(null);
@@ -111,6 +112,7 @@ function onVehicleChange(v: string) {
   const veh = vehicles.value.find((x) => x.id === v);
   if (!veh) return;
   vehicleName.value = veh.name;
+  vehicleGroupName.value = veh.groupName;
   stateNumber.value = veh.stateNumber;
   vinCode.value = veh.vinCode;
 }
@@ -148,6 +150,7 @@ async function save() {
       projectName: projectName.value,
       vehicleId: vehicleId.value,
       vehicleName: vehicleName.value,
+      vehicleGroupName: vehicleGroupName.value,
       stateNumber: stateNumber.value,
       vinCode: vinCode.value,
       vehicleYear: vehicleYear.value ?? undefined,
@@ -199,6 +202,9 @@ async function save() {
         </NFormItem>
         <NFormItem label="Год">
           <NInputNumber v-model:value="vehicleYear" style="width:100%" />
+        </NFormItem>
+        <NFormItem label="Группа">
+          <NInput v-model:value="vehicleGroupName" readonly />
         </NFormItem>
       </div>
 

@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { h, onMounted, ref } from 'vue';
+import { computed, h, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import {
-  NCard, NButton, NAlert, NSpace, NDataTable, NTag, NUpload, NInput, NFormItem, NModal, useMessage,
+  NCard, NButton, NAlert, NSpace, NDataTable, NTag, NUpload, NInput, NFormItem, NModal, NInputNumber, useMessage,
   type DataTableColumns, type UploadFileInfo
 } from 'naive-ui';
 import {
   inventoryApi, type ApprovalStepDto, type AttachmentDto,
-  type PurchaseRequestDto, type SupplierOrderDto, type InboxItem
+  type PurchaseRequestDto, type SupplierOrderDto, type InboxItem, type PurchaseRequestLineInput
 } from '@/api/inventory';
 import { toApiError } from '@/api/client';
-import { computed } from 'vue';
 
 const route = useRoute();
 const msg = useMessage();
@@ -23,20 +22,70 @@ const inboxItem = ref<InboxItem | null>(null);
 const error = ref('');
 const message = ref('');
 const loading = ref(true);
+const saving = ref(false);
 const decisionModalOpen = ref(false);
 const decisionKind = ref<'approve' | 'return'>('approve');
 const decisionComment = ref('');
 const decisionSubmitting = ref(false);
 const currentApprovalStepId = ref<string | null>(null);
+const description = ref('');
+const lines = ref<PurchaseRequestLineInput[]>([]);
 const actingRoleLabel = computed(() => inboxItem.value?.approverRoleLabel ?? '—');
+const editable = computed(() => !!request.value?.canEdit);
 
-const lineColumns: DataTableColumns<PurchaseRequestDto['lines'][number]> = [
+const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
   { title: '#', key: 'lineNo', width: 50 },
-  { title: 'Наименование', key: 'name' },
-  { title: 'Кат. №', key: 'catalogNumber', render: (r) => r.catalogNumber ?? '—' },
-  { title: 'Кол-во', key: 'quantity' },
-  { title: 'Ед.', key: 'unit', render: (r) => r.unit ?? '—' }
-];
+  {
+    title: 'Наименование',
+    key: 'name',
+    render: (row, index) => h(NInput, {
+      value: row.name,
+      disabled: !editable.value,
+      onUpdateValue: (v: string) => { lines.value[index].name = v; }
+    })
+  },
+  {
+    title: 'Кат. №',
+    key: 'catalogNumber',
+    render: (row, index) => h(NInput, {
+      value: row.catalogNumber ?? '',
+      disabled: !editable.value,
+      onUpdateValue: (v: string) => { lines.value[index].catalogNumber = v; }
+    })
+  },
+  {
+    title: 'Кол-во',
+    key: 'quantity',
+    width: 100,
+    render: (row, index) => h(NInputNumber, {
+      value: row.quantity,
+      min: 0,
+      disabled: !editable.value,
+      onUpdateValue: (v: number | null) => { lines.value[index].quantity = v ?? 0; }
+    })
+  },
+  {
+    title: 'Ед.',
+    key: 'unit',
+    width: 80,
+    render: (row, index) => h(NInput, {
+      value: row.unit ?? '',
+      disabled: !editable.value,
+      onUpdateValue: (v: string) => { lines.value[index].unit = v; }
+    })
+  },
+  editable.value ? {
+    title: '',
+    key: 'actions',
+    width: 60,
+    render: (_row, index) => h(NButton, {
+      size: 'small',
+      type: 'error',
+      tertiary: true,
+      onClick: () => removeLine(index)
+    }, () => '×')
+  } : { title: '', key: 'actions', width: 1 }
+]);
 
 const attachmentColumns: DataTableColumns<AttachmentDto> = [
   {
@@ -81,12 +130,26 @@ const approvalColumns: DataTableColumns<ApprovalStepDto> = [
 
 onMounted(load);
 
+function bindRequest(dto: PurchaseRequestDto) {
+  request.value = dto;
+  description.value = dto.description;
+  lines.value = dto.lines.map((l) => ({
+    lineNo: l.lineNo,
+    name: l.name,
+    catalogNumber: l.catalogNumber,
+    quantity: l.quantity,
+    unit: l.unit,
+    estimatedUnitPrice: l.estimatedUnitPrice,
+    notes: undefined
+  }));
+}
+
 async function load() {
   loading.value = true;
   error.value = '';
   try {
     const id = route.params.id as string;
-    request.value = await inventoryApi.getPurchaseRequest(id);
+    bindRequest(await inventoryApi.getPurchaseRequest(id));
     approvals.value = await inventoryApi.getPurchaseApprovals(id);
     const activeStep = approvals.value
       .filter((s) => s.status === 'pending' && !!s.assignedAt && !s.decidedAt)
@@ -100,6 +163,42 @@ async function load() {
     error.value = toApiError(e).detail;
   } finally {
     loading.value = false;
+  }
+}
+
+function addLine() {
+  lines.value.push({ lineNo: lines.value.length + 1, name: '', quantity: 1, unit: 'шт' });
+}
+
+function removeLine(idx: number) {
+  lines.value.splice(idx, 1);
+  lines.value.forEach((p, i) => { p.lineNo = i + 1; });
+}
+
+async function save() {
+  if (!request.value) return;
+  if (!description.value.trim()) {
+    error.value = 'Укажите описание заявки.';
+    return;
+  }
+  if (!lines.value.some((l) => l.name.trim())) {
+    error.value = 'Добавьте хотя бы одну позицию.';
+    return;
+  }
+  saving.value = true;
+  error.value = '';
+  try {
+    bindRequest(await inventoryApi.updatePurchaseRequest(request.value.id, {
+      description: description.value.trim(),
+      lines: lines.value.filter((l) => l.name.trim())
+    }));
+    message.value = 'Изменения сохранены';
+    msg.success(message.value);
+  } catch (e) {
+    error.value = toApiError(e).detail;
+    msg.error(error.value);
+  } finally {
+    saving.value = false;
   }
 }
 
@@ -154,7 +253,7 @@ async function uploadFiles(options: { file: UploadFileInfo }) {
 
 async function submit() {
   try {
-    request.value = await inventoryApi.submitPurchaseRequest(route.params.id as string);
+    bindRequest(await inventoryApi.submitPurchaseRequest(route.params.id as string));
     approvals.value = await inventoryApi.getPurchaseApprovals(route.params.id as string);
     message.value = 'Заявка отправлена на согласование';
     msg.success(message.value);
@@ -195,21 +294,25 @@ async function printRequest() {
 
       <div class="t-grid-2">
         <div><strong>Проект:</strong> {{ request.projectName }}</div>
-        <div><strong>Техника:</strong> {{ request.vehicleName }} ({{ request.stateNumber }})</div>
-      </div>
-      <div class="t-grid-2">
+        <div><strong>Техника:</strong> {{ request.vehicleName }}</div>
         <div><strong>Гос. номер:</strong> {{ request.stateNumber || '—' }}</div>
         <div><strong>VIN:</strong> {{ request.vinCode || '—' }}</div>
         <div><strong>Год:</strong> {{ request.vehicleYear ?? '—' }}</div>
-        <div><strong>Группа:</strong> {{ request.vehicleName }}</div>
+        <div><strong>Группа:</strong> {{ request.vehicleGroupName || '—' }}</div>
         <div v-if="request.defectActNumber"><strong>Дефектный акт:</strong> {{ request.defectActNumber }}</div>
         <div><strong>Инициатор:</strong> {{ request.createdByFullName }}</div>
       </div>
 
-      <p style="margin:0">{{ request.description }}</p>
+      <NFormItem label="Описание / обоснование">
+        <NInput v-model:value="description" type="textarea" :rows="4" :disabled="!editable" />
+      </NFormItem>
 
-      <div class="t-table-wrap">
-        <NDataTable :columns="lineColumns" :data="request.lines" size="small" :bordered="false" />
+      <div>
+        <h3 style="margin:0 0 12px">Позиции</h3>
+        <div class="t-table-wrap">
+          <NDataTable :columns="lineColumns" :data="lines" size="small" :bordered="false" />
+        </div>
+        <NButton v-if="editable" secondary style="margin-top:8px" @click="addLine">+ Строка</NButton>
       </div>
 
       <div>
@@ -226,6 +329,7 @@ async function printRequest() {
       </div>
 
       <NSpace>
+        <NButton v-if="editable" type="primary" :loading="saving" @click="save">Сохранить</NButton>
         <NButton v-if="request.canSubmit" type="primary" @click="submit">Отправить на согласование</NButton>
         <NButton v-if="inboxItem" type="primary" @click="openDecision('approve')">Согласовать</NButton>
         <NButton v-if="inboxItem" secondary @click="openDecision('return')">Вернуть</NButton>

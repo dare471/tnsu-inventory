@@ -47,6 +47,7 @@ public static class PurchaseRequestPrintService
         sb.Append("<table class=\"meta\"><tbody>");
         AppendRow(sb, "Проект", $"{Escape(request.ProjectCode)} — {Escape(request.ProjectName)}");
         AppendRow(sb, "Техника", Escape(request.VehicleName));
+        AppendRow(sb, "Группа", Escape(request.VehicleGroupName));
         AppendRow(sb, "Гос. номер", Escape(request.StateNumber));
         AppendRow(sb, "VIN", string.IsNullOrWhiteSpace(request.VinCode) ? "—" : Escape(request.VinCode));
         AppendRow(sb, "Год выпуска", request.VehicleYear?.ToString() ?? "—");

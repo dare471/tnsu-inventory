@@ -126,6 +126,7 @@ public sealed class CreatePurchaseFromDefectActHandler(IInventoryDbContext db, I
                 act.ProjectName,
                 act.VehicleId,
                 act.VehicleName,
+                act.VehicleGroupName,
                 act.StateNumber,
                 act.VinCode,
                 act.VehicleYear,

@@ -38,6 +38,7 @@ internal static class PurchaseRequestMapper
             request.ProjectName,
             request.VehicleId,
             request.VehicleName,
+            request.VehicleGroupName,
             request.StateNumber,
             request.VinCode,
             request.VehicleYear,

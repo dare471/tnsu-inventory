@@ -34,6 +34,7 @@ public sealed class CreatePurchaseRequestHandler(IInventoryDbContext db, ICurren
             ProjectName = req.ProjectName.Trim(),
             VehicleId = req.VehicleId,
             VehicleName = req.VehicleName.Trim(),
+            VehicleGroupName = req.VehicleGroupName.Trim(),
             StateNumber = req.StateNumber.Trim(),
             VinCode = req.VinCode.Trim(),
             VehicleYear = req.VehicleYear,

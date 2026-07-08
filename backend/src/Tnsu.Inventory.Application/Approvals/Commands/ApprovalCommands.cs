@@ -28,7 +28,7 @@ public sealed class ApproveStepHandler(
         step.Status = ApprovalStepStatus.Approved;
         step.Action = ApprovalAction.Approved;
         step.Comment = ApprovalDecisionCommentHelper.Build(
-            cmd.Comment, actedByAdmin, currentUser, step.ApproverRole, "согласовал");
+            cmd.Comment, actedByAdmin, currentUser, step.ApproverRole);
         step.DigitalSignatureRef = cmd.DigitalSignatureRef?.Trim();
         step.DecidedAt = now;
 
@@ -108,7 +108,7 @@ public sealed class ReturnStepHandler(
         step.Status = ApprovalStepStatus.Returned;
         step.Action = ApprovalAction.Returned;
         step.Comment = ApprovalDecisionCommentHelper.Build(
-            cmd.Comment, actedByAdmin, currentUser, step.ApproverRole, "вернул");
+            cmd.Comment, actedByAdmin, currentUser, step.ApproverRole);
         step.DecidedAt = now;
 
         if (step.DefectActId is Guid defectActId)
@@ -151,7 +151,7 @@ public sealed class RejectStepHandler(IInventoryDbContext db, ICurrentUser curre
         step.Status = ApprovalStepStatus.Rejected;
         step.Action = ApprovalAction.Rejected;
         step.Comment = ApprovalDecisionCommentHelper.Build(
-            cmd.Comment, actedByAdmin, currentUser, step.ApproverRole, "отклонил");
+            cmd.Comment, actedByAdmin, currentUser, step.ApproverRole);
         step.DecidedAt = now;
 
         if (step.DefectActId is Guid defectActId)
@@ -250,8 +250,7 @@ internal static class ApprovalDecisionCommentHelper
         string? userComment,
         bool actedByAdmin,
         ICurrentUser currentUser,
-        string approverRole,
-        string actionVerb)
+        string approverRole)
     {
         var baseComment = string.IsNullOrWhiteSpace(userComment) ? null : userComment.Trim();
         if (!actedByAdmin) return baseComment;

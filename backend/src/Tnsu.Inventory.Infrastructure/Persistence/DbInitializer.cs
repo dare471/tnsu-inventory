@@ -66,6 +66,12 @@ public static class DbInitializer
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_document_approval_assignees_PurchaseRequestId_Role"
             ON document_approval_assignees ("PurchaseRequestId", "Role");
             """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE purchase_requests
+            ADD COLUMN IF NOT EXISTS "VehicleGroupName" character varying(256) NOT NULL DEFAULT '';
+            """, ct);
     }
 
     private static async Task EnsureEntraUsersAsync(InventoryDbContext db, CancellationToken ct)
