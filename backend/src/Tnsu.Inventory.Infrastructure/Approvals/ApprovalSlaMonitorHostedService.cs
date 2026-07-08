@@ -2,18 +2,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Domain;
 using Tnsu.Inventory.Domain.Enums;
-using Tnsu.Inventory.Infrastructure.Notifications;
 using Tnsu.Inventory.Infrastructure.Persistence;
 
 namespace Tnsu.Inventory.Infrastructure.Approvals;
 
 public sealed class ApprovalSlaMonitorHostedService(
     IServiceScopeFactory scopeFactory,
-    IOptions<AppOptions> appOptions,
     ILogger<ApprovalSlaMonitorHostedService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -39,7 +36,6 @@ public sealed class ApprovalSlaMonitorHostedService(
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
         var notifications = scope.ServiceProvider.GetRequiredService<INotificationService>();
-        var frontendBase = appOptions.Value.FrontendBaseUrl.TrimEnd('/');
 
         var pendingSteps = await db.ApprovalSteps
             .Where(s => s.Status == ApprovalStepStatus.Pending && s.AssignedAt != null)
@@ -66,7 +62,9 @@ public sealed class ApprovalSlaMonitorHostedService(
             var docType = step.DocumentType;
             var docId = step.DefectActId ?? step.PurchaseRequestId ?? Guid.Empty;
 
-            var link = $"{frontendBase}/#/document/{docType}/{docId}";
+            var link = docType == DocumentTypes.DefectAct
+                ? $"/defect-acts/{docId}"
+                : $"/purchase-requests/{docId}";
             var notification = new ApprovalNotification(
                 step.Id, docType, docId, docType,
                 approver.Email, approver.FullName,

@@ -9,7 +9,7 @@ namespace Tnsu.Inventory.Infrastructure.Notifications;
 
 public sealed class SmtpNotificationService(
     IOptions<NotificationsOptions> notificationsOptions,
-    ILogger<SmtpNotificationService> logger) : INotificationService
+    ILogger<SmtpNotificationService> logger)
 {
     public Task SendApprovalReminderAsync(ApprovalNotification n, CancellationToken ct) =>
         SendAsync(n.RecipientEmail,

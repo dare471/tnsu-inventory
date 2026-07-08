@@ -23,6 +23,7 @@ public sealed class NotificationsOptions
     public const string SectionName = "Notifications";
 
     public NotificationEmailOptions Email { get; set; } = new();
+    public PowerAutomateOptions PowerAutomate { get; set; } = new();
 }
 
 public sealed class NotificationEmailOptions
@@ -45,6 +46,36 @@ public sealed class TeamsOptions
 
     public string? WebhookUrl { get; set; }
     public bool IsConfigured => !string.IsNullOrWhiteSpace(WebhookUrl);
+}
+
+public sealed class PowerAutomateOptions
+{
+    public string? FlowUrl { get; set; }
+    public string? FlowId { get; set; }
+    public string? EnvironmentId { get; set; }
+
+    public string? TenantId { get; set; }
+    public string? ClientId { get; set; }
+    public string? ClientSecret { get; set; }
+
+    // Двойной слэш обязателен: audience должен получиться "https://service.flow.microsoft.com/"
+    // с завершающим слэшем, иначе flow отвечает MisMatchingOAuthClaims.
+    public string Scope { get; set; } = "https://service.flow.microsoft.com//.default";
+
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(FlowUrl);
+
+    public bool RequiresOAuth =>
+        !string.IsNullOrWhiteSpace(TenantId) &&
+        !string.IsNullOrWhiteSpace(ClientId) &&
+        !string.IsNullOrWhiteSpace(ClientSecret);
+}
+
+public static class PowerAutomateNotificationStatus
+{
+    public const string Assigned = "На согласовании";
+    public const string Approved = "Согласовано";
+    public const string Rejected = "Отклонено";
+    public const string Returned = "Возврат на доработку";
 }
 
 public sealed class ProcurementOptions

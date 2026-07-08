@@ -51,6 +51,8 @@ services:
       App__SharePointSiteUrl: ${SHAREPOINT_SITE_URL:-https://tnsukz.sharepoint.com/sites/kps}
       App__FrontendBaseUrl: ${FRONTEND_BASE_URL:-https://localhost:5173}
       App__AttachmentStoragePath: /var/lib/tnsu-inventory/attachments
+      App__DefectActPageUrl: ${SHAREPOINT_DEFECT_ACT_PAGE_URL:-}
+      App__PurchaseRequestPageUrl: ${SHAREPOINT_PURCHASE_REQUEST_PAGE_URL:-}
       SharePoint__Enabled: ${SHAREPOINT_ENABLED:-false}
       SharePoint__SiteUrl: ${SHAREPOINT_SITE_URL:-https://tnsukz.sharepoint.com/sites/kps}
       SharePoint__TenantId: ${SHAREPOINT_TENANT_ID:-}
@@ -65,6 +67,13 @@ services:
       Notifications__Email__FromName: ${NOTIFICATIONS_EMAIL_FROM_NAME:-TNSU Portal}
       Notifications__Email__Username: ${NOTIFICATIONS_EMAIL_USERNAME:-}
       Notifications__Email__Password: ${NOTIFICATIONS_EMAIL_PASSWORD:-}
+      Notifications__PowerAutomate__FlowUrl: ${POWER_AUTOMATE_FLOW_URL:-}
+      Notifications__PowerAutomate__FlowId: ${POWER_AUTOMATE_FLOW_ID:-}
+      Notifications__PowerAutomate__EnvironmentId: ${POWER_AUTOMATE_ENVIRONMENT_ID:-}
+      Notifications__PowerAutomate__TenantId: ${POWER_AUTOMATE_TENANT_ID:-}
+      Notifications__PowerAutomate__ClientId: ${POWER_AUTOMATE_CLIENT_ID:-}
+      Notifications__PowerAutomate__ClientSecret: ${POWER_AUTOMATE_CLIENT_SECRET:-}
+      Notifications__PowerAutomate__Scope: ${POWER_AUTOMATE_SCOPE:-https://service.flow.microsoft.com//.default}
     ports:
       - "${API_PORT:-8081}:8080"
     volumes:

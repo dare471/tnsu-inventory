@@ -40,8 +40,10 @@ public static class InfrastructureServiceCollectionExtensions
                 ? sp.GetRequiredService<SharePointAttachmentStorage>()
                 : sp.GetRequiredService<LocalAttachmentStorage>();
         });
+        services.AddSingleton<NotificationUrlResolver>();
         services.AddSingleton<SmtpNotificationService>();
         services.AddHttpClient<TeamsNotificationService>();
+        services.AddHttpClient<PowerAutomateNotificationService>();
         services.AddSingleton<INotificationService, CompositeNotificationService>();
         services.AddHttpClient<HttpProcurementBridge>();
         services.AddScoped<IProcurementBridge>(sp =>

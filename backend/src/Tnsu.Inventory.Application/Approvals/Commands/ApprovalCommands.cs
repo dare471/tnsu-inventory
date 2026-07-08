@@ -136,7 +136,10 @@ public sealed class ReturnStepHandler(
 
 public sealed record RejectStepCommand(Guid StepId, string Comment) : IRequest<Unit>;
 
-public sealed class RejectStepHandler(IInventoryDbContext db, ICurrentUser currentUser)
+public sealed class RejectStepHandler(
+    IInventoryDbContext db,
+    ICurrentUser currentUser,
+    INotificationService notifications)
     : IRequestHandler<RejectStepCommand, Unit>
 {
     public async Task<Unit> Handle(RejectStepCommand cmd, CancellationToken ct)
@@ -168,6 +171,9 @@ public sealed class RejectStepHandler(IInventoryDbContext db, ICurrentUser curre
         }
 
         await db.SaveChangesAsync(ct);
+
+        var rejectedNotification = await WorkflowNotificationFactory.BuildInitiatorAsync(db, step, ct, cmd.Comment.Trim());
+        await notifications.SendRejectedAsync(rejectedNotification, ct);
         return Unit.Value;
     }
 }

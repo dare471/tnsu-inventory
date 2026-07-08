@@ -77,6 +77,7 @@ public interface INotificationService
     Task SendAssignedForApprovalAsync(WorkflowNotification notification, CancellationToken ct);
     Task SendApprovedAsync(WorkflowNotification notification, CancellationToken ct);
     Task SendReturnedAsync(WorkflowNotification notification, CancellationToken ct);
+    Task SendRejectedAsync(WorkflowNotification notification, CancellationToken ct);
 }
 
 public sealed record ApprovalNotification(

@@ -172,7 +172,9 @@ tnsu-Inventory/
 
 **Вложения** — `POST /api/purchase-requests/{id}/attachments`, SharePoint при `SharePoint:Enabled=true`.
 
-**Teams** — SLA-уведомления при `Teams:WebhookUrl`.
+**Power Automate** — `Notifications:PowerAutomate:FlowUrl` (`POWER_AUTOMATE_FLOW_URL`). Статусы: На согласовании, Согласовано, Отклонено, Возврат на доработку.
+
+**Teams** — SLA-уведомления при `Teams:WebhookUrl` (если Power Automate не настроен).
 
 **Email** — только для уведомлений, через `Notifications:Email` (`NOTIFICATIONS_EMAIL_*` в `.env`, учётка `portal@tnsu.kz`). Локально по умолчанию Mailhog.
 

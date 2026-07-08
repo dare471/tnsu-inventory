@@ -1,0 +1,120 @@
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace Tnsu.Inventory.Infrastructure.Notifications;
+
+public sealed class PowerAutomateNotificationService(
+    HttpClient http,
+    IOptions<NotificationsOptions> notificationsOptions,
+    NotificationUrlResolver urlResolver,
+    ILogger<PowerAutomateNotificationService> logger)
+{
+    private readonly SemaphoreSlim tokenLock = new(1, 1);
+    private string? cachedToken;
+    private DateTimeOffset tokenExpiresAt = DateTimeOffset.MinValue;
+
+    public Task SendAsync(string email, string linkUrl, string status, string docNumber, CancellationToken ct)
+    {
+        var options = notificationsOptions.Value.PowerAutomate;
+        if (string.IsNullOrWhiteSpace(options.FlowUrl) || string.IsNullOrWhiteSpace(email))
+            return Task.CompletedTask;
+
+        var payload = new
+        {
+            email = email.Trim(),
+            linkURL = urlResolver.ToAbsolute(linkUrl),
+            status,
+            docNumber
+        };
+
+        return InvokeAsync(options, payload, ct);
+    }
+
+    private async Task InvokeAsync(PowerAutomateOptions options, object payload, CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, options.FlowUrl)
+            {
+                Content = JsonContent.Create(payload)
+            };
+
+            if (options.RequiresOAuth)
+            {
+                var token = await GetTokenAsync(options, ct);
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    logger.LogWarning("Power Automate: не удалось получить OAuth-токен, уведомление не отправлено");
+                    return;
+                }
+
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            using var response = await http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                logger.LogWarning(
+                    "Power Automate flow returned {Status}: {Body}",
+                    response.StatusCode,
+                    body);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Power Automate notification failed");
+        }
+    }
+
+    private async Task<string?> GetTokenAsync(PowerAutomateOptions options, CancellationToken ct)
+    {
+        if (cachedToken is not null && DateTimeOffset.UtcNow < tokenExpiresAt)
+            return cachedToken;
+
+        await tokenLock.WaitAsync(ct);
+        try
+        {
+            if (cachedToken is not null && DateTimeOffset.UtcNow < tokenExpiresAt)
+                return cachedToken;
+
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "client_credentials",
+                ["client_id"] = options.ClientId!,
+                ["client_secret"] = options.ClientSecret!,
+                ["scope"] = options.Scope
+            });
+
+            var url = $"https://login.microsoftonline.com/{options.TenantId}/oauth2/v2.0/token";
+            using var response = await http.PostAsync(url, content, ct);
+            var raw = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Power Automate: token endpoint returned {Status}: {Body}", response.StatusCode, raw);
+                return null;
+            }
+
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            var token = root.GetProperty("access_token").GetString();
+            var expiresIn = root.TryGetProperty("expires_in", out var exp) ? exp.GetInt32() : 3600;
+
+            cachedToken = token;
+            tokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(expiresIn - 300);
+            return token;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Power Automate: token acquisition failed");
+            return null;
+        }
+        finally
+        {
+            tokenLock.Release();
+        }
+    }
+}
