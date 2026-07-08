@@ -169,9 +169,6 @@ async function save() {
     <NSpace vertical :size="16">
       <NAlert v-if="error" type="error">{{ error }}</NAlert>
       <NAlert v-if="message" type="success">{{ message }}</NAlert>
-      <p style="margin:0;color:var(--brand-text-muted)">
-        Заявка создаётся без привязки к дефектному акту. Проект и техника загружаются из api.tnsu.kz.
-      </p>
 
       <div class="t-grid-2">
         <NFormItem label="Проект">

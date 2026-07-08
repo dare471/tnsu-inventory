@@ -257,7 +257,7 @@ internal static class ApprovalDecisionCommentHelper
         if (!actedByAdmin) return baseComment;
 
         var adminName = string.IsNullOrWhiteSpace(currentUser.Email) ? "Администратор" : currentUser.Email.Trim();
-        var adminMark = $"[Админ {actionVerb} за роль: {MechanizationRole.Label(approverRole)} ({adminName})]";
+        var adminMark = $"[от имени: {MechanizationRole.Label(approverRole)}, {adminName}]";
         return string.IsNullOrWhiteSpace(baseComment) ? adminMark : $"{baseComment} {adminMark}";
     }
 }

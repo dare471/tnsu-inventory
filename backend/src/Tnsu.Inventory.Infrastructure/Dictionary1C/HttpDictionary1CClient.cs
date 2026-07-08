@@ -136,7 +136,7 @@ public sealed class HttpDictionary1CClient(
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Dictionary API {Path} returned {Status}", path, response.StatusCode);
-                return GetDemoFallback<T>(path);
+                return GetLocalFallback<T>(path);
             }
 
             var data = await response.Content.ReadFromJsonAsync<List<T>>(ct);
@@ -145,11 +145,11 @@ public sealed class HttpDictionary1CClient(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Dictionary API {Path} failed", path);
-            return GetDemoFallback<T>(path);
+            return GetLocalFallback<T>(path);
         }
     }
 
-    private static List<T> GetDemoFallback<T>(string path)
+    private static List<T> GetLocalFallback<T>(string path)
     {
         if (path.Contains("/Dictionary/vehicles", StringComparison.OrdinalIgnoreCase)
             || path.Contains("/Project", StringComparison.OrdinalIgnoreCase))

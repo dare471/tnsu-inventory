@@ -11,9 +11,9 @@ public static class DemoSeedData
     public const string MechanicEmail = "mechanic@tansu.local";
     public const string MechanicFullName = "Механик участка";
 
-    public const string SeedDefectActNumber = "DA-DEMO-00001";
-    public const string SeedPurchaseDraftNumber = "PR-DEMO-00001";
-    public const string SeedPurchaseApprovalNumber = "PR-DEMO-00002";
+    public const string SeedDefectActNumber = "DA-00001";
+    public const string SeedPurchaseDraftNumber = "PR-00001";
+    public const string SeedPurchaseApprovalNumber = "PR-00002";
 
     public static readonly Guid DemoProjectId =
         Guid.Parse("ec3c9aa7-29ef-4725-11ee-50903dd59e16");

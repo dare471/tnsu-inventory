@@ -19,9 +19,7 @@ const error = ref<string | null>(null);
 const submitting = ref(false);
 
 const pageSubtitle = computed(() =>
-  entraAuthEnabled
-    ? `Вход через Microsoft Entra ID для сотрудников ${appBrand.companyName}.`
-    : appBrand.loginSubtitle
+  entraAuthEnabled ? 'Microsoft Entra ID' : appBrand.loginSubtitle
 );
 
 async function microsoftLogin() {

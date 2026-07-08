@@ -255,20 +255,17 @@ async function printRequest() {
           />
         </div>
       </div>
-      <NAlert v-if="inboxItem" type="warning">
-        Действие будет выполнено за роль: <strong>{{ actingRoleLabel }}</strong>
-      </NAlert>
     </NSpace>
     <NModal v-model:show="decisionModalOpen">
       <NCard
         style="max-width:560px;margin:80px auto 0;"
-        :title="decisionKind === 'approve' ? 'Согласовать документ' : 'Вернуть на доработку'"
+        :title="decisionKind === 'approve' ? 'Согласование' : 'Возврат'"
         :bordered="false"
       >
-        <NAlert type="warning" style="margin-bottom:12px">
-          Вы подтверждаете действие за роль: <strong>{{ actingRoleLabel }}</strong>
-        </NAlert>
-        <NFormItem :label="decisionKind === 'approve' ? 'Комментарий (необязательно)' : 'Комментарий'">
+        <NFormItem label="Роль">
+          <NInput :value="actingRoleLabel" readonly />
+        </NFormItem>
+        <NFormItem label="Комментарий">
           <NInput v-model:value="decisionComment" type="textarea" :rows="4" />
         </NFormItem>
         <NSpace justify="end">

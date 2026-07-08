@@ -65,7 +65,7 @@ public sealed class CompositeNotificationService(
         await smtp.SendApprovalReminderAsync(n, ct);
         await teams.SendAdaptiveCardAsync(
             $"Напоминание: {n.DocumentNumber}",
-            $"{n.RecipientName}, документ ожидает согласования уже {n.PendingWorkingDays} раб. дн.",
+            $"{n.DocumentNumber}: на согласовании {n.PendingWorkingDays} раб. дн.",
             n.LinkUrl, [n.RecipientEmail], ct);
     }
 
@@ -78,7 +78,7 @@ public sealed class CompositeNotificationService(
 
         await teams.SendAdaptiveCardAsync(
             $"Эскалация: {n.DocumentNumber}",
-            $"Документ не обработан {n.PendingWorkingDays} раб. дн. Ответственный: {n.RecipientName}",
+            $"Не обработан {n.PendingWorkingDays} раб. дн. · {n.RecipientName}",
             n.LinkUrl, emails, ct);
     }
 
@@ -87,7 +87,7 @@ public sealed class CompositeNotificationService(
         await smtp.SendAssignedForApprovalAsync(n, ct);
         await teams.SendAdaptiveCardAsync(
             $"На согласовании: {n.DocumentNumber}",
-            $"{n.RecipientName}, документ поступил на согласование.",
+            n.DocumentNumber,
             n.LinkUrl,
             [n.RecipientEmail],
             ct);
@@ -98,7 +98,7 @@ public sealed class CompositeNotificationService(
         await smtp.SendApprovedAsync(n, ct);
         await teams.SendAdaptiveCardAsync(
             $"Согласовано: {n.DocumentNumber}",
-            $"{n.InitiatorName}, документ согласован.",
+            n.DocumentNumber,
             n.LinkUrl,
             [n.InitiatorEmail],
             ct);
@@ -108,10 +108,10 @@ public sealed class CompositeNotificationService(
     {
         await smtp.SendReturnedAsync(n, ct);
         var text = string.IsNullOrWhiteSpace(n.Comment)
-            ? $"{n.InitiatorName}, документ возвращён на доработку."
-            : $"{n.InitiatorName}, документ возвращён на доработку. Комментарий: {n.Comment}";
+            ? $"{n.DocumentNumber} возвращён на доработку."
+            : $"{n.DocumentNumber} возвращён на доработку. {n.Comment}";
         await teams.SendAdaptiveCardAsync(
-            $"Возврат на доработку: {n.DocumentNumber}",
+            $"Возврат: {n.DocumentNumber}",
             text,
             n.LinkUrl,
             [n.InitiatorEmail],

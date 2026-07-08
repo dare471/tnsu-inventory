@@ -337,9 +337,6 @@ onMounted(() => {
       <NAlert v-if="success" type="success">{{ success }}</NAlert>
 
       <NCard title="Добавить пользователя" size="small">
-        <p style="margin:0 0 12px;color:var(--brand-text-muted)">
-          Данные подтягиваются из ЗУП: выберите компанию и сотрудника.
-        </p>
         <NForm label-placement="left" :label-width="130">
           <NFormItem label="Компания">
             <NSelect

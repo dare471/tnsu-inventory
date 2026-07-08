@@ -14,48 +14,48 @@ public sealed class SmtpNotificationService(
     public Task SendApprovalReminderAsync(ApprovalNotification n, CancellationToken ct) =>
         SendAsync(n.RecipientEmail,
             $"Напоминание: согласование {n.DocumentNumber}",
-            $"Заявка/акт ожидает вашего решения уже {n.PendingWorkingDays} раб. дн.\n{n.LinkUrl}",
+            $"На согласовании {n.PendingWorkingDays} раб. дн.\n{n.LinkUrl}",
             ct);
 
     public async Task SendEscalationAsync(ApprovalNotification n, CancellationToken ct)
     {
         await SendAsync(n.RecipientEmail,
             $"Эскалация: согласование {n.DocumentNumber}",
-            $"Документ не обработан {n.PendingWorkingDays} раб. дн.\n{n.LinkUrl}", ct);
+            $"Не обработан {n.PendingWorkingDays} раб. дн.\n{n.LinkUrl}", ct);
 
         if (!string.IsNullOrWhiteSpace(n.ManagerEmail))
             await SendAsync(n.ManagerEmail,
                 $"Эскалация руководителю: {n.DocumentNumber}",
-                $"Согласующий {n.RecipientName} не обработал документ.\n{n.LinkUrl}", ct);
+                $"Согласующий {n.RecipientName} не обработал.\n{n.LinkUrl}", ct);
 
         if (!string.IsNullOrWhiteSpace(n.ChiefMechanicEmail))
             await SendAsync(n.ChiefMechanicEmail,
                 $"Эскалация главному механику: {n.DocumentNumber}",
-                $"Документ {n.DocumentNumber} просрочен на шаге согласования.\n{n.LinkUrl}", ct);
+                $"{n.DocumentNumber} просрочен.\n{n.LinkUrl}", ct);
     }
 
     public Task SendAssignedForApprovalAsync(WorkflowNotification n, CancellationToken ct) =>
         SendAsync(
             n.RecipientEmail,
-            $"Документ на согласовании: {n.DocumentNumber}",
-            $"{n.RecipientName}, документ поступил на согласование.\n{n.LinkUrl}",
+            $"На согласовании: {n.DocumentNumber}",
+            $"{n.DocumentNumber}\n{n.LinkUrl}",
             ct);
 
     public Task SendApprovedAsync(WorkflowNotification n, CancellationToken ct) =>
         SendAsync(
             n.InitiatorEmail,
-            $"Документ согласован: {n.DocumentNumber}",
-            $"{n.InitiatorName}, документ согласован.\n{n.LinkUrl}",
+            $"Согласовано: {n.DocumentNumber}",
+            $"{n.DocumentNumber}\n{n.LinkUrl}",
             ct);
 
     public Task SendReturnedAsync(WorkflowNotification n, CancellationToken ct)
     {
         var body = string.IsNullOrWhiteSpace(n.Comment)
-            ? $"{n.InitiatorName}, документ возвращён на доработку.\n{n.LinkUrl}"
-            : $"{n.InitiatorName}, документ возвращён на доработку.\nКомментарий: {n.Comment.Trim()}\n{n.LinkUrl}";
+            ? $"{n.DocumentNumber} возвращён на доработку.\n{n.LinkUrl}"
+            : $"{n.DocumentNumber} возвращён на доработку.\n{n.Comment.Trim()}\n{n.LinkUrl}";
         return SendAsync(
             n.InitiatorEmail,
-            $"Документ возвращён: {n.DocumentNumber}",
+            $"Возврат: {n.DocumentNumber}",
             body,
             ct);
     }

@@ -355,9 +355,6 @@ function printAct() {
         <NButton v-if="act?.canCreatePurchaseRequest" type="primary" @click="createPurchase">Сформировать заявку</NButton>
         <NButton v-if="!isNew && act" secondary @click="printAct">Печать</NButton>
       </NSpace>
-      <NAlert v-if="inboxItem" type="warning">
-        Действие будет выполнено за роль: <strong>{{ actingRoleLabel }}</strong>
-      </NAlert>
 
       <div v-if="id">
         <h3 style="margin:0 0 12px">Вложения</h3>
@@ -382,13 +379,13 @@ function printAct() {
     <NModal v-model:show="decisionModalOpen">
       <NCard
         style="max-width:560px;margin:80px auto 0;"
-        :title="decisionKind === 'approve' ? 'Согласовать документ' : 'Вернуть на доработку'"
+        :title="decisionKind === 'approve' ? 'Согласование' : 'Возврат'"
         :bordered="false"
       >
-        <NAlert type="warning" style="margin-bottom:12px">
-          Вы подтверждаете действие за роль: <strong>{{ actingRoleLabel }}</strong>
-        </NAlert>
-        <NFormItem :label="decisionKind === 'approve' ? 'Комментарий (необязательно)' : 'Комментарий'">
+        <NFormItem label="Роль">
+          <NInput :value="actingRoleLabel" readonly />
+        </NFormItem>
+        <NFormItem label="Комментарий">
           <NInput v-model:value="decisionComment" type="textarea" :rows="4" />
         </NFormItem>
         <NSpace justify="end">
