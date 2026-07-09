@@ -42,12 +42,16 @@ export abstract class MechanizationBaseWebPart<TProps extends MechanizationWebPa
 
   protected getToken: (() => Promise<string | null>) | undefined;
   private _app: Awaited<ReturnType<typeof mountMechanizationEmbed>> | undefined;
+  private readonly onViewportResize = (): void => {
+    this.applyContainerHeight();
+  };
 
   protected abstract getContainerId(): string;
   protected abstract getEmbedOptions(): EmbedOptions;
 
   protected async onInit(): Promise<void> {
     await this.refreshRuntime();
+    window.addEventListener('resize', this.onViewportResize);
     return super.onInit();
   }
 
@@ -90,6 +94,7 @@ export abstract class MechanizationBaseWebPart<TProps extends MechanizationWebPa
         this.getToken
       );
       console.info('[Mechanization] mounted');
+      requestAnimationFrame(() => this.applyContainerHeight());
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[Mechanization] mount failed', err);
@@ -103,12 +108,20 @@ export abstract class MechanizationBaseWebPart<TProps extends MechanizationWebPa
   }
 
   protected onDispose(): void {
+    window.removeEventListener('resize', this.onViewportResize);
     this._app?.unmount();
   }
 
+  private applyContainerHeight(): void {
+    const top = Math.max(0, Math.round(this.domElement.getBoundingClientRect().top));
+    this.domElement.style.width = '100%';
+    this.domElement.style.height = `calc(100vh - ${top}px)`;
+    this.domElement.style.minHeight = '480px';
+    this.domElement.style.overflow = 'hidden';
+  }
+
   protected mountRoot(containerId: string): HTMLElement {
-    this.domElement.style.cssText =
-      'width:100%;height:100vh;min-height:480px;overflow:hidden;';
+    this.applyContainerHeight();
     this.domElement.innerHTML =
       `<div id="${containerId}" class="mechanization-embed-root"></div>`;
     return this.domElement.querySelector(`#${containerId}`)!;

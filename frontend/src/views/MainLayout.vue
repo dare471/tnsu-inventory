@@ -201,76 +201,33 @@ const userInitials = computed(() => {
       </header>
 
       <main class="t-app-content">
-        <NAlert v-if="authError" type="error" style="margin-bottom:16px">{{ authError }}</NAlert>
+        <div class="t-page-scroll">
+          <NAlert v-if="authError" type="error" style="margin-bottom:16px">{{ authError }}</NAlert>
 
-        <NSpace
-          v-if="showEmbedNav"
-          :size="8"
-          style="margin-bottom:16px"
-          wrap
-        >
-          <NButton
-            v-for="item in items"
-            :key="item.name"
-            :type="activeName === item.name ? 'primary' : 'default'"
-            :secondary="activeName !== item.name"
-            @click="go(item)"
+          <NSpace
+            v-if="showEmbedNav"
+            :size="8"
+            style="margin-bottom:16px"
+            wrap
           >
-            <template #icon>
-              <NIcon :component="item.icon" />
-            </template>
-            {{ renderedLabel(item) }}
-          </NButton>
-        </NSpace>
+            <NButton
+              v-for="item in items"
+              :key="item.name"
+              :type="activeName === item.name ? 'primary' : 'default'"
+              :secondary="activeName !== item.name"
+              @click="go(item)"
+            >
+              <template #icon>
+                <NIcon :component="item.icon" />
+              </template>
+              {{ renderedLabel(item) }}
+            </NButton>
+          </NSpace>
 
-        <RouterView />
+          <RouterView />
+        </div>
       </main>
     </div>
   </div>
 </template>
 
-<style scoped>
-.t-app-content {
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  overflow: auto;
-  padding: 16px 20px 24px;
-  background: var(--brand-bg);
-}
-
-.t-app-shell--embed {
-  display: flex;
-  flex: 1;
-  height: 100%;
-  min-height: 0;
-  width: 100%;
-  overflow: hidden;
-}
-
-.t-app-shell--embed .t-sidebar {
-  height: 100%;
-  min-height: 0;
-  align-self: stretch;
-  position: relative;
-  top: auto;
-}
-
-.t-app-shell--embed .t-app-main {
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.t-app-shell--embed .t-app-content {
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  overflow: auto;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-</style>

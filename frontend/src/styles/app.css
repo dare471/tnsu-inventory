@@ -25,22 +25,67 @@ html, body, #app, #mechanization-app {
 }
 
 .mechanization-embed-root {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   width: 100%;
-  min-height: 100vh;
-  height: 100vh;
-  max-height: 100vh;
+  height: 100%;
+  min-height: 480px;
   overflow: hidden;
 }
 
 .mechanization-app-host {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.t-app-shell--embed {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.t-app-shell--embed .t-sidebar {
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+}
+
+.t-app-shell--embed .t-app-main {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.t-app-content {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  padding: 16px 20px 24px;
+  background: var(--brand-bg);
+}
+
+.t-page-scroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 #app {
@@ -308,9 +353,12 @@ a:hover { text-decoration: underline; }
 
 /* Tables */
 .t-data-table.n-data-table .n-data-table-base-table {
-  table-layout: auto;
-  width: max-content;
-  min-width: 100%;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.t-table-wrap .t-data-table {
+  min-width: 980px;
 }
 
 .t-data-table .n-data-table-th,
