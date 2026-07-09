@@ -4,16 +4,28 @@ import AppRoot from '@/App.vue';
 import { createEmbedRouter } from './router';
 import { type EmbedOptions } from './options';
 import { readDocumentTypeFromUrl, resolveEmbedDocumentId } from './urlParams';
-import 'vfonts/Lato.css';
-import '@/styles/app.css';
+import latoCss from 'vfonts/Lato.css?inline';
+import appCss from '@/styles/app.css?inline';
 
 export type MountedApp = App<Element>;
+
+const EMBED_STYLES_ID = 'mechanization-embed-styles';
+
+function injectEmbedStyles(): void {
+  if (document.getElementById(EMBED_STYLES_ID)) return;
+  const style = document.createElement('style');
+  style.id = EMBED_STYLES_ID;
+  style.textContent = `${latoCss}\n${appCss}`;
+  document.head.appendChild(style);
+}
 
 export async function mountMechanizationEmbed(
   el: string | HTMLElement,
   options: EmbedOptions,
   getToken?: () => Promise<string | null>
 ): Promise<MountedApp> {
+  injectEmbedStyles();
+
   window.__MECH_EMBED__ = {
     ...options,
     documentId: resolveEmbedDocumentId(options.mode, options.documentId),

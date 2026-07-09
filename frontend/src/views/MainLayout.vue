@@ -123,14 +123,6 @@ const userInitials = computed(() => {
     :class="{ 't-app-shell--embed': spfxMode, 't-app-shell--spfx-full': showSidebar }"
   >
     <aside v-if="showSidebar" class="t-sidebar" :class="{ 't-sidebar--collapsed': sidebarCollapsed }">
-      <div class="t-sidebar__brand">
-        <div class="t-sidebar__logo">{{ appBrand.logoLetter }}</div>
-        <div class="t-sidebar__brand-text">
-          <div class="t-sidebar__title">{{ appBrand.brandName.toUpperCase() }}</div>
-          <div class="t-sidebar__subtitle">{{ appBrand.moduleSubtitle }}</div>
-        </div>
-      </div>
-
       <nav class="t-sidebar__nav">
         <template v-for="item in items" :key="item.name">
           <NTooltip v-if="sidebarCollapsed" placement="right" :delay="200">
