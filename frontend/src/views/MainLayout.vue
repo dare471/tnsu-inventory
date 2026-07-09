@@ -232,27 +232,45 @@ const userInitials = computed(() => {
 <style scoped>
 .t-app-content {
   flex: 1;
+  min-height: 0;
+  min-width: 0;
   overflow: auto;
   padding: 16px 20px 24px;
   background: var(--brand-bg);
 }
 
 .t-app-shell--embed {
-  height: auto;
-  min-height: 0;
-}
-
-.t-app-shell--embed.t-app-shell--spfx-full {
-  min-height: 100vh;
-  width: 100%;
-}
-
-.t-app-shell--embed.t-app-shell--spfx-full .t-app-main {
-  min-height: 100vh;
+  display: flex;
   flex: 1;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.t-app-shell--embed .t-sidebar {
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  position: relative;
+  top: auto;
 }
 
 .t-app-shell--embed .t-app-main {
+  flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.t-app-shell--embed .t-app-content {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 </style>

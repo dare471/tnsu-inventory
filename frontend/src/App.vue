@@ -5,15 +5,22 @@ import { themeOverrides } from '@/styles/theme';
 </script>
 
 <template>
-  <NConfigProvider :locale="ruRU" :date-locale="dateRuRU" :theme-overrides="themeOverrides">
-    <NLoadingBarProvider>
-      <NDialogProvider>
-        <NMessageProvider>
-          <NNotificationProvider placement="top-right">
-            <RouterView />
-          </NNotificationProvider>
-        </NMessageProvider>
-      </NDialogProvider>
-    </NLoadingBarProvider>
-  </NConfigProvider>
+  <div class="mechanization-app-host">
+    <NConfigProvider
+      abstract
+      :locale="ruRU"
+      :date-locale="dateRuRU"
+      :theme-overrides="themeOverrides"
+    >
+      <NLoadingBarProvider>
+        <NDialogProvider>
+          <NMessageProvider>
+            <NNotificationProvider placement="top-right">
+              <RouterView />
+            </NNotificationProvider>
+          </NMessageProvider>
+        </NDialogProvider>
+      </NLoadingBarProvider>
+    </NConfigProvider>
+  </div>
 </template>

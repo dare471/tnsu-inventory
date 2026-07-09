@@ -24,6 +24,31 @@ html, body, #app, #mechanization-app {
   color: var(--brand-text);
 }
 
+.mechanization-embed-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.mechanization-app-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
 * { box-sizing: border-box; }
 
 a { color: var(--brand-orange); text-decoration: none; }
@@ -277,11 +302,15 @@ a:hover { text-decoration: underline; }
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Tables */
 .t-data-table.n-data-table .n-data-table-base-table {
-  table-layout: fixed;
+  table-layout: auto;
+  width: max-content;
+  min-width: 100%;
 }
 
 .t-data-table .n-data-table-th,

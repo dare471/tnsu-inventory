@@ -107,8 +107,10 @@ export abstract class MechanizationBaseWebPart<TProps extends MechanizationWebPa
   }
 
   protected mountRoot(containerId: string): HTMLElement {
+    this.domElement.style.cssText =
+      'width:100%;height:100vh;min-height:480px;overflow:hidden;';
     this.domElement.innerHTML =
-      `<div id="${containerId}" style="min-height:100vh;width:100%"></div>`;
+      `<div id="${containerId}" class="mechanization-embed-root"></div>`;
     return this.domElement.querySelector(`#${containerId}`)!;
   }
 }
