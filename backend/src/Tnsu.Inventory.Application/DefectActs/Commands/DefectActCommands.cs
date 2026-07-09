@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Tnsu.Inventory.Application.Common.Exceptions;
 using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Application.DefectActs;
+using Tnsu.Inventory.Domain;
 using Tnsu.Inventory.Domain.Entities;
 using Tnsu.Inventory.Domain.Enums;
 
@@ -123,6 +124,11 @@ public sealed class SubmitDefectActHandler(
 
         if (string.IsNullOrWhiteSpace(act.MalfunctionDescription))
             throw new ValidationFailedException("Укажите описание неисправности.");
+
+        var hasPhoto = await db.Attachments.AnyAsync(
+            a => a.DefectActId == act.Id && a.Category == AttachmentCategories.DefectPhoto, ct);
+        if (!hasPhoto)
+            throw new ValidationFailedException("Прикрепите фото неисправной детали.");
 
         var hasPending = await db.ApprovalSteps.AnyAsync(
             s => s.DefectActId == act.Id && s.Status == ApprovalStepStatus.Pending, ct);

@@ -45,6 +45,8 @@ const malfunctionDescription = ref('');
 const parts = ref<DefectActPartInput[]>([{ lineNo: 1, name: '', quantity: 1, unit: 'шт' }]);
 
 const editable = computed(() => isNew.value || !!act.value?.canEdit);
+const photoAttachments = computed(() => attachments.value.filter((a) => a.category === 'defect_photo'));
+const otherAttachments = computed(() => attachments.value.filter((a) => a.category !== 'defect_photo'));
 
 const projectOptions = computed(() =>
   projects.value.map((p) => ({ label: `${p.code} — ${p.projectName}`, value: p.id }))
@@ -175,6 +177,23 @@ async function uploadFiles(options: { file: UploadFileInfo }) {
     await inventoryApi.uploadDefectAttachment(id.value, raw, 'general');
     attachments.value = await inventoryApi.listDefectAttachments(id.value);
     msg.success('Файл загружен');
+  } catch (e) {
+    error.value = toApiError(e).detail;
+    msg.error(error.value);
+  }
+}
+
+async function uploadPhoto(options: { file: UploadFileInfo }) {
+  const raw = options.file.file;
+  if (!raw || !id.value) return;
+  if (!raw.type.startsWith('image/')) {
+    msg.error('Допустимы только изображения (JPEG, PNG и т.д.)');
+    return;
+  }
+  try {
+    await inventoryApi.uploadDefectAttachment(id.value, raw, 'defect_photo');
+    attachments.value = await inventoryApi.listDefectAttachments(id.value);
+    msg.success('Фото загружено');
   } catch (e) {
     error.value = toApiError(e).detail;
     msg.error(error.value);
@@ -357,14 +376,30 @@ function printAct() {
       </NSpace>
 
       <div v-if="id">
-        <h3 style="margin:0 0 12px">Вложения</h3>
+        <h3 style="margin:0 0 12px">Фото неисправности</h3>
+        <p v-if="editable" style="margin:0 0 12px;color:var(--brand-text-muted)">
+          Обязательно для отправки на согласование
+        </p>
+        <NSpace v-if="editable" style="margin-bottom:12px">
+          <NUpload accept="image/*" :show-file-list="false" @change="uploadPhoto">
+            <NButton secondary>Добавить фото</NButton>
+          </NUpload>
+        </NSpace>
+        <div v-if="photoAttachments.length" class="t-table-wrap">
+          <NDataTable :columns="attachmentColumns" :data="photoAttachments" size="small" :bordered="false" />
+        </div>
+        <p v-else style="color:var(--brand-text-muted)">Фото не прикреплены</p>
+      </div>
+
+      <div v-if="id">
+        <h3 style="margin:0 0 12px">Прочие вложения</h3>
         <NSpace v-if="editable" style="margin-bottom:12px">
           <NUpload :show-file-list="false" @change="uploadFiles">
             <NButton secondary>Добавить вложение</NButton>
           </NUpload>
         </NSpace>
-        <div v-if="attachments.length" class="t-table-wrap">
-          <NDataTable :columns="attachmentColumns" :data="attachments" size="small" :bordered="false" />
+        <div v-if="otherAttachments.length" class="t-table-wrap">
+          <NDataTable :columns="attachmentColumns" :data="otherAttachments" size="small" :bordered="false" />
         </div>
         <p v-else style="color:var(--brand-text-muted)">Вложений нет</p>
       </div>

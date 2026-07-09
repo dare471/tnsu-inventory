@@ -85,7 +85,8 @@ const items = computed(() => {
   return baseItems.filter((i) => allowed.has(i.name));
 });
 
-const showEmbedNav = computed(() => spfxMode && items.value.length > 1);
+const showSidebar = computed(() => !spfxMode || embed?.mode === 'lists');
+const showEmbedNav = computed(() => spfxMode && !showSidebar.value && items.value.length > 1);
 
 const activeName = computed(() => route.name?.toString() ?? '');
 const renderedLabel = (item: NavItem) =>
@@ -117,8 +118,11 @@ const userInitials = computed(() => {
 </script>
 
 <template>
-  <div class="t-app-shell" :class="{ 't-app-shell--embed': spfxMode }">
-    <aside v-if="!spfxMode" class="t-sidebar" :class="{ 't-sidebar--collapsed': sidebarCollapsed }">
+  <div
+    class="t-app-shell"
+    :class="{ 't-app-shell--embed': spfxMode, 't-app-shell--spfx-full': showSidebar }"
+  >
+    <aside v-if="showSidebar" class="t-sidebar" :class="{ 't-sidebar--collapsed': sidebarCollapsed }">
       <div class="t-sidebar__brand">
         <div class="t-sidebar__logo">{{ appBrand.logoLetter }}</div>
         <div class="t-sidebar__brand-text">
@@ -244,6 +248,16 @@ const userInitials = computed(() => {
 .t-app-shell--embed {
   height: auto;
   min-height: 0;
+}
+
+.t-app-shell--embed.t-app-shell--spfx-full {
+  min-height: 100vh;
+  width: 100%;
+}
+
+.t-app-shell--embed.t-app-shell--spfx-full .t-app-main {
+  min-height: 100vh;
+  flex: 1;
 }
 
 .t-app-shell--embed .t-app-main {

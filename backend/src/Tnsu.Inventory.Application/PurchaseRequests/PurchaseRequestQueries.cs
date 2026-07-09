@@ -1,5 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Tnsu.Inventory.Application.Common;
+using Tnsu.Inventory.Application.Common.Exceptions;
 using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Application.DefectActs;
 using Tnsu.Inventory.Domain.Enums;
@@ -49,7 +51,7 @@ internal static class PurchaseRequestMapper
             request.AssignedExecutor?.FullName,
             request.CreatedAt,
             request.Lines.OrderBy(l => l.LineNo).Select(l => new PurchaseRequestLineDto(
-                l.Id, l.LineNo, l.Name, l.CatalogNumber, l.Quantity, l.Unit,
+                l.Id, l.LineNo, l.Code, l.Name, l.CatalogNumber, l.Quantity, l.Unit,
                 l.EstimatedUnitPrice, l.EstimatedAmount, l.Notes)).ToList(),
             canEdit,
             canSubmit,
@@ -68,13 +70,26 @@ public sealed class GetPurchaseRequestHandler(IInventoryDbContext db, ICurrentUs
 
 public sealed record ListPurchaseRequestsQuery(string? Search) : IRequest<IReadOnlyList<PurchaseRequestListItemDto>>;
 
-public sealed class ListPurchaseRequestsHandler(IInventoryDbContext db)
+public sealed class ListPurchaseRequestsHandler(IInventoryDbContext db, ICurrentUser currentUser)
     : IRequestHandler<ListPurchaseRequestsQuery, IReadOnlyList<PurchaseRequestListItemDto>>
 {
     public async Task<IReadOnlyList<PurchaseRequestListItemDto>> Handle(
         ListPurchaseRequestsQuery q, CancellationToken ct)
     {
         var query = db.PurchaseRequests.AsNoTracking();
+
+        if (!DocumentListScope.IsGlobalAdmin(currentUser))
+        {
+            var userId = currentUser.UserId ?? throw new UnauthorizedException();
+            var participantIds = await db.ApprovalSteps.AsNoTracking()
+                .Where(s => s.PurchaseRequestId.HasValue && s.ApproverUserId == userId)
+                .Select(s => s.PurchaseRequestId!.Value)
+                .Distinct()
+                .ToListAsync(ct);
+
+            query = query.Where(r => r.CreatedByUserId == userId || participantIds.Contains(r.Id));
+        }
+
         if (!string.IsNullOrWhiteSpace(q.Search))
         {
             var s = q.Search.Trim();

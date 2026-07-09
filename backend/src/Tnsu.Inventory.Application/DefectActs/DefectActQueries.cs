@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Tnsu.Inventory.Application.Common;
 using Tnsu.Inventory.Application.Common.Exceptions;
 using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Application.DefectActs;
 using Tnsu.Inventory.Application.PurchaseRequests;
+using Tnsu.Inventory.Domain;
 using Tnsu.Inventory.Domain.Entities;
 using Tnsu.Inventory.Domain.Enums;
 
@@ -21,7 +23,11 @@ internal static class DefectActMapper
 
         var canEdit = act.Status is WorkflowStatus.Draft or WorkflowStatus.Returned
                       && currentUser.UserId == act.CreatedByUserId;
-        var canSubmit = canEdit && !string.IsNullOrWhiteSpace(act.MalfunctionDescription);
+        var hasPhoto = await db.Attachments.AsNoTracking().AnyAsync(
+            a => a.DefectActId == act.Id && a.Category == AttachmentCategories.DefectPhoto, ct);
+        var canSubmit = canEdit
+                        && !string.IsNullOrWhiteSpace(act.MalfunctionDescription)
+                        && hasPhoto;
         var canCreatePurchase = act.Status is WorkflowStatus.Approved or WorkflowStatus.Signed;
 
         return new DefectActDto(
@@ -61,12 +67,25 @@ public sealed class GetDefectActHandler(IInventoryDbContext db, ICurrentUser cur
 
 public sealed record ListDefectActsQuery(string? Search) : IRequest<IReadOnlyList<DefectActListItemDto>>;
 
-public sealed class ListDefectActsHandler(IInventoryDbContext db)
+public sealed class ListDefectActsHandler(IInventoryDbContext db, ICurrentUser currentUser)
     : IRequestHandler<ListDefectActsQuery, IReadOnlyList<DefectActListItemDto>>
 {
     public async Task<IReadOnlyList<DefectActListItemDto>> Handle(ListDefectActsQuery q, CancellationToken ct)
     {
         var query = db.DefectActs.AsNoTracking();
+
+        if (!DocumentListScope.IsGlobalAdmin(currentUser))
+        {
+            var userId = currentUser.UserId ?? throw new UnauthorizedException();
+            var participantIds = await db.ApprovalSteps.AsNoTracking()
+                .Where(s => s.DefectActId.HasValue && s.ApproverUserId == userId)
+                .Select(s => s.DefectActId!.Value)
+                .Distinct()
+                .ToListAsync(ct);
+
+            query = query.Where(a => a.CreatedByUserId == userId || participantIds.Contains(a.Id));
+        }
+
         if (!string.IsNullOrWhiteSpace(q.Search))
         {
             var s = q.Search.Trim();

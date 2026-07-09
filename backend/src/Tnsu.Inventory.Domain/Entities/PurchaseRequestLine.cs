@@ -5,6 +5,7 @@ public class PurchaseRequestLine
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid PurchaseRequestId { get; set; }
     public int LineNo { get; set; }
+    public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? CatalogNumber { get; set; }
     public decimal Quantity { get; set; }

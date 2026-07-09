@@ -30,6 +30,7 @@ public sealed record UpdatePurchaseRequestRequest(
 public sealed record PurchaseRequestLineDto(
     Guid Id,
     int LineNo,
+    string Code,
     string Name,
     string? CatalogNumber,
     decimal Quantity,

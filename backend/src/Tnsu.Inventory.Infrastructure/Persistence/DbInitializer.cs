@@ -72,6 +72,21 @@ public static class DbInitializer
             ALTER TABLE purchase_requests
             ADD COLUMN IF NOT EXISTS "VehicleGroupName" character varying(256) NOT NULL DEFAULT '';
             """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE purchase_request_lines
+            ADD COLUMN IF NOT EXISTS "Code" character varying(64) NOT NULL DEFAULT '';
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE purchase_request_lines AS l
+            SET "Code" = r."Number" || '-' || LPAD(l."LineNo"::text, 2, '0')
+            FROM purchase_requests AS r
+            WHERE l."PurchaseRequestId" = r."Id"
+              AND l."Code" = '';
+            """, ct);
     }
 
     private static async Task EnsureEntraUsersAsync(InventoryDbContext db, CancellationToken ct)
@@ -82,33 +97,6 @@ public static class DbInitializer
             MechanizationRole.ChiefMechanic, "seed-trishina-kgnt", ct);
         await UpsertUserAsync(db, DemoSeedData.MechanicEmail, DemoSeedData.MechanicFullName,
             MechanizationRole.SiteMechanic, "demo-site-mechanic-local", ct);
-
-        var oldChief = await db.Users.FirstOrDefaultAsync(
-            u => u.Email == "chief.mechanic@tansu.local", ct);
-        if (oldChief is not null)
-            oldChief.IsActive = false;
-
-        var entraMechanicPlaceholder = await db.Users.FirstOrDefaultAsync(
-            u => u.Email.ToLower() == "mechanic@tnsukz.onmicrosoft.com", ct);
-        if (entraMechanicPlaceholder is not null)
-            entraMechanicPlaceholder.IsActive = false;
-
-        foreach (var legacyMechanic in await db.Users
-            .Where(u => u.Role == MechanizationRole.SiteMechanic
-                        && u.Email.ToLower() != DemoSeedData.MechanicEmail.ToLower())
-            .ToListAsync(ct))
-        {
-            legacyMechanic.IsActive = false;
-        }
-
-        foreach (var seedUser in await db.Users
-            .Where(u => u.Email.ToLower() == DemoSeedData.DaurenEmail.ToLower()
-                        || u.Email.ToLower() == DemoSeedData.TrishinaEmail.ToLower()
-                        || u.Email.ToLower() == DemoSeedData.MechanicEmail.ToLower())
-            .ToListAsync(ct))
-        {
-            seedUser.IsActive = true;
-        }
 
         await db.SaveChangesAsync(ct);
     }

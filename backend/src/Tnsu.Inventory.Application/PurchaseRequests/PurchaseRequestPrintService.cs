@@ -63,13 +63,13 @@ public static class PurchaseRequestPrintService
         sb.Append($"<p>{Escape(request.Description).Replace("\n", "<br/>")}</p>");
 
         sb.Append("<p><strong>Позиции:</strong></p>");
-        sb.Append("<table class=\"items\"><thead><tr><th>№</th><th>Наименование</th><th>Кат. №</th><th>Кол-во</th><th>Ед.</th></tr></thead><tbody>");
+        sb.Append("<table class=\"items\"><thead><tr><th>Код</th><th>№</th><th>Наименование</th><th>Кат. №</th><th>Кол-во</th><th>Ед.</th></tr></thead><tbody>");
         foreach (var line in request.Lines.OrderBy(x => x.LineNo))
         {
-            sb.Append($"<tr><td>{line.LineNo}</td><td>{Escape(line.Name)}</td><td>{Escape(line.CatalogNumber ?? "—")}</td><td>{line.Quantity}</td><td>{Escape(line.Unit ?? "—")}</td></tr>");
+            sb.Append($"<tr><td>{Escape(line.Code)}</td><td>{line.LineNo}</td><td>{Escape(line.Name)}</td><td>{Escape(line.CatalogNumber ?? "—")}</td><td>{line.Quantity}</td><td>{Escape(line.Unit ?? "—")}</td></tr>");
         }
         if (request.Lines.Count == 0)
-            sb.Append("<tr><td colspan=\"5\">—</td></tr>");
+            sb.Append("<tr><td colspan=\"6\">—</td></tr>");
         sb.Append("</tbody></table>");
 
         if (approvals.Count > 0)

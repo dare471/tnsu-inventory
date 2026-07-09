@@ -41,7 +41,7 @@ public sealed class CreatePurchaseRequestHandler(IInventoryDbContext db, ICurren
             Description = req.Description.Trim()
         };
 
-        request.Lines = req.Lines.Select(l => MapLine(request.Id, l)).ToList();
+        request.Lines = req.Lines.Select(l => MapLine(number, request.Id, l)).ToList();
         request.EstimatedAmount = request.Lines.Sum(l => l.EstimatedAmount ?? 0);
 
         db.PurchaseRequests.Add(request);
@@ -57,13 +57,14 @@ public sealed class CreatePurchaseRequestHandler(IInventoryDbContext db, ICurren
         return $"PR-{year}-{(count + 1):D5}";
     }
 
-    private static PurchaseRequestLine MapLine(Guid requestId, PurchaseRequestLineInput l)
+    private static PurchaseRequestLine MapLine(string requestNumber, Guid requestId, PurchaseRequestLineInput l)
     {
         var amount = l.EstimatedUnitPrice.HasValue ? l.EstimatedUnitPrice.Value * l.Quantity : (decimal?)null;
         return new PurchaseRequestLine
         {
             PurchaseRequestId = requestId,
             LineNo = l.LineNo,
+            Code = $"{requestNumber}-{l.LineNo:D2}",
             Name = l.Name.Trim(),
             CatalogNumber = l.CatalogNumber?.Trim(),
             Quantity = l.Quantity,
@@ -99,6 +100,7 @@ public sealed class UpdatePurchaseRequestHandler(IInventoryDbContext db, ICurren
             {
                 PurchaseRequestId = request.Id,
                 LineNo = l.LineNo,
+                Code = $"{request.Number}-{l.LineNo:D2}",
                 Name = l.Name.Trim(),
                 CatalogNumber = l.CatalogNumber?.Trim(),
                 Quantity = l.Quantity,

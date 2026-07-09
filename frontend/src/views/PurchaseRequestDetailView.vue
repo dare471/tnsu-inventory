@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   NCard, NButton, NAlert, NSpace, NDataTable, NTag, NUpload, NInput, NFormItem, NModal, NInputNumber, useMessage,
   type DataTableColumns, type UploadFileInfo
@@ -12,6 +12,7 @@ import {
 import { toApiError } from '@/api/client';
 
 const route = useRoute();
+const router = useRouter();
 const msg = useMessage();
 
 const request = ref<PurchaseRequestDto | null>(null);
@@ -34,6 +35,13 @@ const actingRoleLabel = computed(() => inboxItem.value?.approverRoleLabel ?? '�
 const editable = computed(() => !!request.value?.canEdit);
 
 const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
+  {
+    title: 'Код',
+    key: 'code',
+    width: 150,
+    render: (row) => row.code
+      ?? (request.value?.number ? `${request.value.number}-${String(row.lineNo).padStart(2, '0')}` : '—')
+  },
   { title: '#', key: 'lineNo', width: 50 },
   {
     title: 'Наименование',
@@ -135,6 +143,7 @@ function bindRequest(dto: PurchaseRequestDto) {
   description.value = dto.description;
   lines.value = dto.lines.map((l) => ({
     lineNo: l.lineNo,
+    code: l.code,
     name: l.name,
     catalogNumber: l.catalogNumber,
     quantity: l.quantity,
@@ -299,7 +308,14 @@ async function printRequest() {
         <div><strong>VIN:</strong> {{ request.vinCode || '—' }}</div>
         <div><strong>Год:</strong> {{ request.vehicleYear ?? '—' }}</div>
         <div><strong>Группа:</strong> {{ request.vehicleGroupName || '—' }}</div>
-        <div v-if="request.defectActNumber"><strong>Дефектный акт:</strong> {{ request.defectActNumber }}</div>
+        <div v-if="request.defectActId && request.defectActNumber">
+          <strong>Дефектный акт:</strong>
+          <a
+            href="#"
+            style="margin-left:6px;color:var(--brand-orange);font-weight:600"
+            @click.prevent="router.push({ name: 'defect-act-detail', params: { id: request.defectActId } })"
+          >{{ request.defectActNumber }}</a>
+        </div>
         <div><strong>Инициатор:</strong> {{ request.createdByFullName }}</div>
       </div>
 

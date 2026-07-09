@@ -128,7 +128,7 @@ export interface DefectActDto extends DefectActListItem {
   canEdit: boolean; canSubmit: boolean; canCreatePurchaseRequest: boolean;
 }
 export interface PurchaseRequestLineInput {
-  lineNo: number; name: string; catalogNumber?: string;
+  lineNo: number; code?: string; name: string; catalogNumber?: string;
   quantity: number; unit?: string; estimatedUnitPrice?: number; notes?: string;
 }
 export interface CreatePurchaseRequestRequest {
@@ -153,7 +153,7 @@ export interface PurchaseRequestDto extends PurchaseRequestListItem {
   stateNumber: string; vinCode: string; vehicleYear?: number;
   description: string; hasServiceNoteAttachment: boolean;
   createdByFullName: string; assignedExecutorFullName?: string;
-  lines: Array<{ id: string; lineNo: number; name: string; catalogNumber?: string; quantity: number; unit?: string; estimatedUnitPrice?: number; estimatedAmount?: number }>;
+  lines: Array<{ id: string; lineNo: number; code: string; name: string; catalogNumber?: string; quantity: number; unit?: string; estimatedUnitPrice?: number; estimatedAmount?: number; notes?: string }>;
   canEdit: boolean; canSubmit: boolean; canCancel: boolean;
 }
 export interface InboxItem {

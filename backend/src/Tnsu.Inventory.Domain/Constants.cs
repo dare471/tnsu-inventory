@@ -10,6 +10,7 @@ public static class AttachmentCategories
 {
     public const string General = "general";
     public const string ServiceNote = "service_note";
+    public const string DefectPhoto = "defect_photo";
 }
 
 public static class BusinessRules
