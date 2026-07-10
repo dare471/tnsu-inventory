@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref, watch } from 'vue';
 import {
-  NAlert, NButton, NCard, NDataTable, NForm, NFormItem, NInput, NSelect, NSpace, NSwitch, NTabPane, NTabs, NTag,
-  type DataTableColumns
+  NAlert, NButton, NButtonGroup, NCard, NDataTable, NForm, NFormItem, NInput, NSelect, NSpace, NSwitch, NTag,
+  type DataTableColumns, type PaginationProps
 } from 'naive-ui';
 import {
   inventoryApi,
@@ -27,8 +27,8 @@ const userTotal = ref(0);
 const userPage = ref(1);
 const userPageSize = ref(50);
 const userSearch = ref('');
-const userRoleFilter = ref<string | null>(null);
-const userActiveFilter = ref<boolean | null>(null);
+const userRoleFilter = ref('');
+const userActiveFilter = ref<'all' | 'active' | 'inactive'>('all');
 const routeAssignments = ref<ApprovalRouteAssignmentDto[]>([]);
 const routeUsers = ref<AdminUserOptionDto[]>([]);
 const projects = ref<ProjectDto[]>([]);
@@ -60,9 +60,9 @@ const zupLoading = ref(false);
 
 const roleOptions = MECHANIZATION_ROLES.map((r) => ({ label: r.label, value: r.value }));
 const activeFilterOptions = [
-  { label: 'Все', value: null },
-  { label: 'Активные', value: true },
-  { label: 'Неактивные', value: false }
+  { label: 'Все', value: 'all' as const },
+  { label: 'Активные', value: 'active' as const },
+  { label: 'Неактивные', value: 'inactive' as const }
 ];
 
 const zupOptions = computed(() =>
@@ -140,20 +140,32 @@ function hydrateRouteDraft() {
   });
 }
 
+const userPagination = computed<PaginationProps>(() => ({
+  page: userPage.value,
+  pageSize: userPageSize.value,
+  itemCount: userTotal.value,
+  showSizePicker: true,
+  pageSizes: [25, 50, 100]
+}));
+
 async function loadUsers() {
   usersLoading.value = true;
   error.value = '';
   try {
     const data = await inventoryApi.listAdminUsers({
       search: userSearch.value.trim() || undefined,
-      role: userRoleFilter.value ?? undefined,
-      isActive: userActiveFilter.value ?? undefined,
+      role: userRoleFilter.value || undefined,
+      isActive: userActiveFilter.value === 'all'
+        ? undefined
+        : userActiveFilter.value === 'active',
       page: userPage.value,
       pageSize: userPageSize.value
     });
-    users.value = data.items;
-    userTotal.value = data.total;
+    users.value = data.items ?? [];
+    userTotal.value = data.total ?? users.value.length;
   } catch (e) {
+    users.value = [];
+    userTotal.value = 0;
     error.value = toApiError(e).detail;
   } finally {
     usersLoading.value = false;
@@ -186,8 +198,8 @@ function applyUserFilters() {
 
 function resetUserFilters() {
   userSearch.value = '';
-  userRoleFilter.value = null;
-  userActiveFilter.value = null;
+  userRoleFilter.value = '';
+  userActiveFilter.value = 'all';
   userPage.value = 1;
   void loadUsers();
 }
@@ -391,9 +403,25 @@ onMounted(() => {
       <NAlert v-if="error" type="error">{{ error }}</NAlert>
       <NAlert v-if="success" type="success">{{ success }}</NAlert>
 
-      <NTabs v-model:value="activeTab" type="line" animated>
-        <NTabPane name="users" tab="Пользователи">
-          <NSpace vertical :size="16" style="margin-top:8px">
+      <NButtonGroup>
+        <NButton
+          :type="activeTab === 'users' ? 'primary' : 'default'"
+          :secondary="activeTab !== 'users'"
+          @click="activeTab = 'users'"
+        >
+          Пользователи
+        </NButton>
+        <NButton
+          :type="activeTab === 'routes' ? 'primary' : 'default'"
+          :secondary="activeTab !== 'routes'"
+          @click="activeTab = 'routes'"
+        >
+          Маршруты согласования
+        </NButton>
+      </NButtonGroup>
+
+      <div v-show="activeTab === 'users'">
+        <NSpace vertical :size="16" style="margin-top:8px">
             <NCard title="Добавить пользователя" size="small">
               <NForm label-placement="left" :label-width="130">
                 <NFormItem label="Компания">
@@ -452,7 +480,7 @@ onMounted(() => {
                   />
                   <NSelect
                     v-model:value="userRoleFilter"
-                    :options="[{ label: 'Все роли', value: null }, ...roleOptions]"
+                    :options="[{ label: 'Все роли', value: '' }, ...roleOptions]"
                     clearable
                     placeholder="Роль"
                   />
@@ -475,13 +503,7 @@ onMounted(() => {
                     size="small"
                     :row-key="(r: AdminUserDto) => r.id"
                     remote
-                    :pagination="{
-                      page: userPage,
-                      pageSize: userPageSize,
-                      itemCount: userTotal,
-                      showSizePicker: true,
-                      pageSizes: [25, 50, 100]
-                    }"
+                    :pagination="userPagination"
                     @update:page="(p: number) => { userPage = p; }"
                     @update:page-size="(s: number) => { userPageSize = s; userPage = 1; }"
                   />
@@ -489,9 +511,9 @@ onMounted(() => {
               </NSpace>
             </NCard>
           </NSpace>
-        </NTabPane>
+      </div>
 
-        <NTabPane name="routes" tab="Маршруты согласования">
+      <div v-show="activeTab === 'routes'">
           <NSpace vertical :size="16" style="margin-top:8px">
             <NCard title="Маршрут согласования (закупка/дефектный акт)" size="small" :loading="routesLoading">
               <NSpace vertical :size="10">
@@ -592,8 +614,7 @@ onMounted(() => {
               </NSpace>
             </NCard>
           </NSpace>
-        </NTabPane>
-      </NTabs>
+      </div>
     </NSpace>
   </NCard>
 </template>

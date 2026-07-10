@@ -78,13 +78,29 @@ export const inventoryApi = {
     apiClient.post<SupplierOrderDto>(`/api/purchase-requests/${purchaseId}/supplier-order`).then((r) => r.data),
   getSupplierOrder: (purchaseId: string) =>
     apiClient.get<SupplierOrderDto | null>(`/api/purchase-requests/${purchaseId}/supplier-order`).then((r) => r.data),
-  listAdminUsers: (params?: {
+  listAdminUsers: async (params?: {
     search?: string;
     role?: string;
     isActive?: boolean;
     page?: number;
     pageSize?: number;
-  }) => apiClient.get<AdminUsersPageDto>('/api/admin/users', { params }).then((r) => r.data),
+  }) => {
+    const { data } = await apiClient.get<AdminUsersPageDto | AdminUserDto[]>('/api/admin/users', { params });
+    if (Array.isArray(data)) {
+      return {
+        items: data,
+        total: data.length,
+        page: 1,
+        pageSize: data.length || params?.pageSize || 50
+      };
+    }
+    return {
+      items: data.items ?? [],
+      total: data.total ?? data.items?.length ?? 0,
+      page: data.page ?? 1,
+      pageSize: data.pageSize ?? params?.pageSize ?? 50
+    };
+  },
   listZupEmployees: (company: string) =>
     apiClient.get<ZupEmployeeDto[]>('/api/admin/zup/employees', { params: { company } }).then((r) => r.data),
   createAdminUser: (body: CreateAdminUserRequest) =>
