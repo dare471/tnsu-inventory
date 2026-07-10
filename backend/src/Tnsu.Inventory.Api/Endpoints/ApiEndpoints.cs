@@ -160,13 +160,43 @@ public static class ApiEndpoints
         });
 
         var admin = api.MapGroup("/admin");
-        admin.MapGet("/users", async (ICurrentUser current, InventoryDbContext db, CancellationToken ct) =>
+        admin.MapGet("/users", async (
+            ICurrentUser current,
+            InventoryDbContext db,
+            [FromQuery] string? search,
+            [FromQuery] string? role,
+            [FromQuery] bool? isActive,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50,
+            CancellationToken ct = default) =>
         {
             if (!IsAdminRole(current.Role)) return Results.Forbid();
 
-            var users = await db.Users
-                .AsNoTracking()
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 10, 200);
+
+            var query = db.Users.AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = $"%{search.Trim().ToLowerInvariant()}%";
+                query = query.Where(u =>
+                    EF.Functions.ILike(u.Email, term) ||
+                    EF.Functions.ILike(u.FullName, term));
+            }
+
+            if (!string.IsNullOrWhiteSpace(role))
+                query = query.Where(u => u.Role == role);
+
+            if (isActive.HasValue)
+                query = query.Where(u => u.IsActive == isActive.Value);
+
+            var total = await query.CountAsync(ct);
+            var users = await query
                 .OrderBy(u => u.FullName)
+                .ThenBy(u => u.Email)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(u => new AdminUserDto(
                     u.Id,
                     u.Email,
@@ -176,7 +206,7 @@ public static class ApiEndpoints
                     u.IsActive))
                 .ToListAsync(ct);
 
-            return Results.Ok(users);
+            return Results.Ok(new AdminUsersPageDto(users, total, page, pageSize));
         });
 
         admin.MapGet("/zup/employees", async (
@@ -585,6 +615,11 @@ public sealed record AdminUserDto(
     string Role,
     string RoleLabel,
     bool IsActive);
+public sealed record AdminUsersPageDto(
+    IReadOnlyList<AdminUserDto> Items,
+    int Total,
+    int Page,
+    int PageSize);
 public sealed record CreateAdminUserRequest(string EmployerCompany, string ZupEmployeeId, string Role, bool IsActive);
 public sealed record UpdateAdminUserRequest(string FullName, string Role, bool IsActive);
 public sealed record AdminUserOptionDto(Guid Id, string FullName, string Email, string Role, string RoleLabel);

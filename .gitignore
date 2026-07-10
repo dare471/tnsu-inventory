@@ -14,6 +14,7 @@ spfx/temp/
 spfx/.heft/
 spfx/sharepoint/solution/
 spfx/**/*.sppkg
+LOCAL-BUILD.md
 **/bin/
 **/obj/
 .DS_Store

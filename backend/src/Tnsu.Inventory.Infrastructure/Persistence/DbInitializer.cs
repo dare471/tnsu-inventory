@@ -137,14 +137,12 @@ public static class DbInitializer
                 Email = email.Trim(),
                 FullName = fullName,
                 Role = role,
-                EntraObjectId = entraObjectId
+                EntraObjectId = entraObjectId,
+                IsActive = true
             });
             return;
         }
 
-        user.FullName = fullName;
-        user.Role = role;
-        user.IsActive = true;
         if (string.IsNullOrWhiteSpace(user.EntraObjectId) || user.EntraObjectId.StartsWith("demo-"))
             user.EntraObjectId = entraObjectId;
     }

@@ -78,7 +78,13 @@ export const inventoryApi = {
     apiClient.post<SupplierOrderDto>(`/api/purchase-requests/${purchaseId}/supplier-order`).then((r) => r.data),
   getSupplierOrder: (purchaseId: string) =>
     apiClient.get<SupplierOrderDto | null>(`/api/purchase-requests/${purchaseId}/supplier-order`).then((r) => r.data),
-  listAdminUsers: () => apiClient.get<AdminUserDto[]>('/api/admin/users').then((r) => r.data),
+  listAdminUsers: (params?: {
+    search?: string;
+    role?: string;
+    isActive?: boolean;
+    page?: number;
+    pageSize?: number;
+  }) => apiClient.get<AdminUsersPageDto>('/api/admin/users', { params }).then((r) => r.data),
   listZupEmployees: (company: string) =>
     apiClient.get<ZupEmployeeDto[]>('/api/admin/zup/employees', { params: { company } }).then((r) => r.data),
   createAdminUser: (body: CreateAdminUserRequest) =>
@@ -186,6 +192,12 @@ export interface AdminUserDto {
   role: string;
   roleLabel: string;
   isActive: boolean;
+}
+export interface AdminUsersPageDto {
+  items: AdminUserDto[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 export interface CreateAdminUserRequest {
   employerCompany: string;
