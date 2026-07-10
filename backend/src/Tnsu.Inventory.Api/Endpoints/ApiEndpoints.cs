@@ -456,6 +456,64 @@ public static class ApiEndpoints
             return Results.NoContent();
         });
 
+        });
+
+        admin.MapGet("/documents", async (
+            ICurrentUser current,
+            InventoryDbContext db,
+            [FromQuery] string type,
+            [FromQuery] string? search,
+            CancellationToken ct) =>
+        {
+            if (!IsAdminRole(current.Role)) return Results.Forbid();
+            if (type is not DocumentTypes.DefectAct and not DocumentTypes.PurchaseRequest)
+                return Results.BadRequest(new { message = "Неподдерживаемый тип документа." });
+
+            const int limit = 100;
+            if (type == DocumentTypes.DefectAct)
+            {
+                var query = db.DefectActs.AsNoTracking();
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var s = search.Trim();
+                    query = Guid.TryParse(s, out var gid)
+                        ? query.Where(a => a.Id == gid || a.Number.Contains(s))
+                        : query.Where(a => a.Number.Contains(s) || a.ProjectName.Contains(s));
+                }
+
+                var items = await query
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Take(limit)
+                    .Select(a => new AdminDocumentOptionDto(
+                        a.Id,
+                        DocumentTypes.DefectAct,
+                        a.Number,
+                        WorkflowStatus.Label(a.Status)))
+                    .ToListAsync(ct);
+                return Results.Ok(items);
+            }
+
+            var prQuery = db.PurchaseRequests.AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim();
+                prQuery = Guid.TryParse(s, out var gid)
+                    ? prQuery.Where(r => r.Id == gid || r.Number.Contains(s))
+                    : prQuery.Where(r => r.Number.Contains(s) || r.ProjectName.Contains(s));
+            }
+
+            var prItems = await prQuery
+                .OrderByDescending(r => r.CreatedAt)
+                .Take(limit)
+                .Select(r => new AdminDocumentOptionDto(
+                    r.Id,
+                    DocumentTypes.PurchaseRequest,
+                    r.Number,
+                    WorkflowStatus.Label(r.Status)))
+                .ToListAsync(ct);
+            return Results.Ok(prItems);
+        });
+
         admin.MapGet("/documents/{documentType}/{id:guid}/approvers", async (
             string documentType,
             Guid id,
@@ -629,6 +687,11 @@ public sealed record ApprovalRouteDto(
     IReadOnlyList<AdminUserOptionDto> Users);
 public sealed record UpdateApprovalRouteAssignmentRequest(string Role, Guid UserId);
 public sealed record UpdateApprovalRouteRequest(IReadOnlyList<UpdateApprovalRouteAssignmentRequest> Assignments);
+public sealed record AdminDocumentOptionDto(
+    Guid Id,
+    string DocumentType,
+    string Number,
+    string StatusLabel);
 public sealed record DocumentApproverSettingsDto(
     string DocumentType,
     Guid DocumentId,

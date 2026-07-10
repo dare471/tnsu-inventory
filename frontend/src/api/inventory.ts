@@ -116,6 +116,8 @@ export const inventoryApi = {
     apiClient.put('/api/admin/project-approval-route', body, { params: { projectId } }),
   getDocumentApprovers: (documentType: string, documentId: string) =>
     apiClient.get<DocumentApproverSettingsDto>(`/api/admin/documents/${documentType}/${documentId}/approvers`).then((r) => r.data),
+  listAdminDocuments: (type: 'defect_act' | 'purchase_request', search?: string) =>
+    apiClient.get<AdminDocumentOptionDto[]>('/api/admin/documents', { params: { type, search } }).then((r) => r.data),
   updateDocumentApprovers: (documentType: string, documentId: string, body: UpdateApprovalRouteRequest) =>
     apiClient.put(`/api/admin/documents/${documentType}/${documentId}/approvers`, body)
 };
@@ -252,6 +254,12 @@ export interface ApprovalRouteDto {
 }
 export interface UpdateApprovalRouteRequest {
   assignments: Array<{ role: string; userId: string }>;
+}
+export interface AdminDocumentOptionDto {
+  id: string;
+  documentType: string;
+  number: string;
+  statusLabel: string;
 }
 export interface DocumentApproverSettingsDto {
   documentType: string;

@@ -405,3 +405,45 @@ a:hover { text-decoration: underline; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Admin — маршруты согласования */
+.t-route-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.t-route-row {
+  display: grid;
+  grid-template-columns: 240px minmax(280px, 480px);
+  column-gap: 20px;
+  align-items: start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--brand-border);
+}
+
+.t-route-row:last-child {
+  border-bottom: none;
+}
+
+.t-route-row__label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--brand-navy);
+  padding-top: 8px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.t-route-row__field {
+  width: 100%;
+  min-width: 0;
+}
+
+.t-route-row__field .n-select {
+  width: 100%;
+}
+
+.t-route-project-picker .n-select {
+  width: min(480px, 100%);
+}

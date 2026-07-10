@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref, watch } from 'vue';
 import {
-  NAlert, NButton, NButtonGroup, NCard, NDataTable, NForm, NFormItem, NInput, NSelect, NSpace, NSwitch, NTag,
+  NAlert, NButton, NButtonGroup, NCard, NDataTable, NForm, NFormItem, NInput, NSelect, NSpace, NSwitch,
   type DataTableColumns, type PaginationProps
 } from 'naive-ui';
 import {
@@ -9,6 +9,7 @@ import {
   type AdminUserDto,
   type ApprovalRouteAssignmentDto,
   type AdminUserOptionDto,
+  type AdminDocumentOptionDto,
   type ZupEmployeeDto,
   type ProjectDto
 } from '@/api/inventory';
@@ -41,9 +42,13 @@ const docSettings = ref<{
   users: AdminUserOptionDto[];
 } | null>(null);
 const docType = ref<'defect_act' | 'purchase_request'>('purchase_request');
-const docId = ref('');
+const selectedDocId = ref<string | null>(null);
+const docIdManual = ref('');
+const docOptions = ref<AdminDocumentOptionDto[]>([]);
+const docOptionsLoading = ref(false);
 const docDraft = reactive<Record<string, string>>({});
 const savingDocApprovers = ref(false);
+let docSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
 const createForm = reactive({
   employerCompany: null as string | null,
@@ -132,6 +137,20 @@ const documentUserOptions = computed(() =>
     value: u.id
   }))
 );
+const docTypeLabel = computed(() =>
+  docType.value === 'defect_act' ? 'Дефектный акт' : 'Заявка'
+);
+const docSelectOptions = computed(() =>
+  docOptions.value.map((d) => ({
+    label: `${docTypeLabel.value} ${d.number} — ${d.statusLabel}`,
+    value: d.id
+  }))
+);
+const activeDocId = computed(() => {
+  if (selectedDocId.value) return selectedDocId.value;
+  const manual = docIdManual.value.trim();
+  return manual || null;
+});
 
 function hydrateRouteDraft() {
   Object.keys(routeDraft).forEach((k) => delete routeDraft[k]);
@@ -312,14 +331,51 @@ async function saveProjectRoute() {
   }
 }
 
+async function loadDocumentOptions(search?: string) {
+  docOptionsLoading.value = true;
+  try {
+    docOptions.value = await inventoryApi.listAdminDocuments(docType.value, search);
+  } catch {
+    docOptions.value = [];
+  } finally {
+    docOptionsLoading.value = false;
+  }
+}
+
+function handleDocSearch(query: string) {
+  if (docSearchTimer) clearTimeout(docSearchTimer);
+  docSearchTimer = setTimeout(() => {
+    void loadDocumentOptions(query || undefined);
+  }, 300);
+}
+
+watch(docType, () => {
+  selectedDocId.value = null;
+  docIdManual.value = '';
+  docSettings.value = null;
+  void loadDocumentOptions();
+});
+
+watch(selectedDocId, (id) => {
+  if (id) docIdManual.value = '';
+});
+
+watch(docIdManual, (val) => {
+  if (val.trim()) selectedDocId.value = null;
+});
+
+watch(activeTab, (tab) => {
+  if (tab === 'routes' && !docOptions.value.length) void loadDocumentOptions();
+});
+
 async function loadDocumentApprovers() {
-  if (!docId.value.trim()) {
-    error.value = 'Введите ID документа.';
+  if (!activeDocId.value) {
+    error.value = 'Выберите документ из списка или введите GUID.';
     return;
   }
   error.value = '';
   success.value = '';
-  const data = await inventoryApi.getDocumentApprovers(docType.value, docId.value.trim());
+  const data = await inventoryApi.getDocumentApprovers(docType.value, activeDocId.value);
   docSettings.value = { assignments: data.assignments, users: data.users };
   Object.keys(docDraft).forEach((k) => delete docDraft[k]);
   data.assignments.forEach((a) => {
@@ -339,7 +395,7 @@ async function saveDocumentApprovers() {
     }));
     if (assignments.some((a) => !a.userId))
       throw new Error('Назначьте пользователя на каждый шаг.');
-    await inventoryApi.updateDocumentApprovers(docType.value, docId.value.trim(), {
+    await inventoryApi.updateDocumentApprovers(docType.value, activeDocId.value!, {
       assignments: assignments as Array<{ role: string; userId: string }>
     });
     success.value = 'Согласующие документа обновлены.';
@@ -471,27 +527,33 @@ onMounted(() => {
 
             <NCard title="Список пользователей" size="small">
               <NSpace vertical :size="12">
-                <div class="t-admin-filters">
+                <NSpace vertical :size="12" class="t-admin-filters">
                   <NInput
                     v-model:value="userSearch"
                     clearable
                     placeholder="Поиск по ФИО или email"
                     @keyup.enter="applyUserFilters"
                   />
-                  <NSelect
-                    v-model:value="userRoleFilter"
-                    :options="[{ label: 'Все роли', value: '' }, ...roleOptions]"
-                    clearable
-                    placeholder="Роль"
-                  />
-                  <NSelect
-                    v-model:value="userActiveFilter"
-                    :options="activeFilterOptions"
-                    placeholder="Статус"
-                  />
-                  <NButton type="primary" @click="applyUserFilters">Найти</NButton>
-                  <NButton secondary @click="resetUserFilters">Сбросить</NButton>
-                </div>
+                  <NSpace :size="12" wrap class="t-admin-filters__row">
+                    <NSelect
+                      v-model:value="userRoleFilter"
+                      class="t-admin-filters__field"
+                      :options="[{ label: 'Все роли', value: '' }, ...roleOptions]"
+                      clearable
+                      placeholder="Роль"
+                    />
+                    <NSelect
+                      v-model:value="userActiveFilter"
+                      class="t-admin-filters__field"
+                      :options="activeFilterOptions"
+                      placeholder="Статус"
+                    />
+                  </NSpace>
+                  <NSpace :size="8" class="t-admin-filters__actions">
+                    <NButton type="primary" @click="applyUserFilters">Найти</NButton>
+                    <NButton secondary @click="resetUserFilters">Сбросить</NButton>
+                  </NSpace>
+                </NSpace>
 
                 <div class="t-table-wrap">
                   <NDataTable
@@ -516,22 +578,26 @@ onMounted(() => {
       <div v-show="activeTab === 'routes'">
           <NSpace vertical :size="16" style="margin-top:8px">
             <NCard title="Маршрут согласования (закупка/дефектный акт)" size="small" :loading="routesLoading">
-              <NSpace vertical :size="10">
+              <div class="t-route-list">
                 <div
                   v-for="step in routeAssignments"
                   :key="step.role"
                   class="t-route-row"
                 >
-                  <NTag type="info">{{ step.roleLabel }}</NTag>
-                  <NSelect
-                    v-model:value="routeDraft[step.role]"
-                    filterable
-                    clearable
-                    :options="userOptions"
-                    placeholder="Выберите пользователя"
-                  />
+                  <div class="t-route-row__label" :title="step.roleLabel">
+                    {{ step.roleLabel }}
+                  </div>
+                  <div class="t-route-row__field">
+                    <NSelect
+                      v-model:value="routeDraft[step.role]"
+                      filterable
+                      clearable
+                      :options="userOptions"
+                      placeholder="Выберите пользователя"
+                    />
+                  </div>
                 </div>
-              </NSpace>
+              </div>
               <NSpace style="margin-top:14px">
                 <NButton type="primary" :loading="savingRoute" @click="saveRoute">Сохранить маршрут</NButton>
               </NSpace>
@@ -539,7 +605,7 @@ onMounted(() => {
 
             <NCard title="Проектные согласующие (РП/СБ)" size="small">
               <NSpace vertical :size="12">
-                <NFormItem label="Проект">
+                <NFormItem label="Проект" class="t-route-project-picker">
                   <NSelect
                     v-model:value="selectedProjectId"
                     filterable
@@ -549,19 +615,25 @@ onMounted(() => {
                   />
                 </NFormItem>
                 <template v-if="selectedProjectId && projectRouteAssignments.length">
-                  <div
-                    v-for="step in projectRouteAssignments"
-                    :key="`project-${step.role}`"
-                    class="t-route-row"
-                  >
-                    <NTag type="warning">{{ step.roleLabel }}</NTag>
-                    <NSelect
-                      v-model:value="projectRouteDraft[step.role]"
-                      filterable
-                      clearable
-                      :options="userOptions"
-                      placeholder="Выберите пользователя"
-                    />
+                  <div class="t-route-list">
+                    <div
+                      v-for="step in projectRouteAssignments"
+                      :key="`project-${step.role}`"
+                      class="t-route-row"
+                    >
+                      <div class="t-route-row__label" :title="step.roleLabel">
+                        {{ step.roleLabel }}
+                      </div>
+                      <div class="t-route-row__field">
+                        <NSelect
+                          v-model:value="projectRouteDraft[step.role]"
+                          filterable
+                          clearable
+                          :options="userOptions"
+                          placeholder="Выберите пользователя"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <NSpace>
                     <NButton type="primary" :loading="savingProjectRoute" @click="saveProjectRoute">
@@ -584,26 +656,48 @@ onMounted(() => {
                       ]"
                     />
                   </NFormItem>
-                  <NFormItem label="ID документа">
-                    <NInput v-model:value="docId" placeholder="GUID документа" />
+                  <NFormItem label="Документ">
+                    <NSelect
+                      v-model:value="selectedDocId"
+                      filterable
+                      clearable
+                      remote
+                      :loading="docOptionsLoading"
+                      :options="docSelectOptions"
+                      placeholder="Например: PR-00002"
+                      @search="handleDocSearch"
+                    />
                   </NFormItem>
                   <NButton type="primary" @click="loadDocumentApprovers">Загрузить</NButton>
                 </div>
+                <NFormItem label="Или GUID" class="t-doc-guid-field">
+                  <NInput
+                    v-model:value="docIdManual"
+                    placeholder="00000000-0000-0000-0000-000000000000"
+                    clearable
+                  />
+                </NFormItem>
 
                 <template v-if="docSettings">
-                  <div
-                    v-for="step in docSettings.assignments"
-                    :key="`doc-${step.role}`"
-                    class="t-route-row"
-                  >
-                    <NTag type="info">{{ step.roleLabel }}</NTag>
-                    <NSelect
-                      v-model:value="docDraft[step.role]"
-                      filterable
-                      clearable
-                      :options="documentUserOptions"
-                      placeholder="Выберите пользователя"
-                    />
+                  <div class="t-route-list">
+                    <div
+                      v-for="step in docSettings.assignments"
+                      :key="`doc-${step.role}`"
+                      class="t-route-row"
+                    >
+                      <div class="t-route-row__label" :title="step.roleLabel">
+                        {{ step.roleLabel }}
+                      </div>
+                      <div class="t-route-row__field">
+                        <NSelect
+                          v-model:value="docDraft[step.role]"
+                          filterable
+                          clearable
+                          :options="documentUserOptions"
+                          placeholder="Выберите пользователя"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <NSpace>
                     <NButton type="primary" :loading="savingDocApprovers" @click="saveDocumentApprovers">
@@ -621,31 +715,50 @@ onMounted(() => {
 
 <style scoped>
 .t-admin-filters {
-  display: grid;
-  grid-template-columns: minmax(220px, 2fr) minmax(180px, 1fr) minmax(160px, 1fr) auto auto;
-  gap: 12px;
-  align-items: center;
+  margin-bottom: 4px;
 }
 
-.t-route-row {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 12px;
-  align-items: center;
+.t-admin-filters__row {
+  width: 100%;
+}
+
+.t-admin-filters__field {
+  min-width: 180px;
+  flex: 1 1 180px;
+}
+
+.t-admin-filters__actions {
+  padding-top: 4px;
 }
 
 .t-doc-approver-filters {
-  display: grid;
-  grid-template-columns: 200px 1fr auto;
-  gap: 12px;
-  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+
+.t-doc-approver-filters :deep(.n-form-item) {
+  margin-bottom: 0;
+  min-width: 180px;
+}
+
+.t-doc-approver-filters :deep(.n-form-item:last-of-type) {
+  flex: 1 1 260px;
+  max-width: 480px;
+}
+
+.t-doc-guid-field {
+  max-width: 480px;
+}
+
+.t-doc-guid-field :deep(.n-form-item-label) {
+  font-size: 13px;
 }
 
 @media (max-width: 900px) {
-  .t-admin-filters,
-  .t-route-row,
-  .t-doc-approver-filters {
-    grid-template-columns: 1fr;
+  .t-admin-filters__field {
+    width: 100%;
   }
 }
 </style>
