@@ -99,7 +99,8 @@ public sealed class ListDefectActsHandler(IInventoryDbContext db, ICurrentUser c
         return await query.OrderByDescending(a => a.CreatedAt).Take(200)
             .Select(a => new DefectActListItemDto(
             a.Id, a.Number, a.Status, WorkflowStatus.Label(a.Status),
-            a.ProjectName, a.VehicleName, a.CreatedBy!.FullName, a.StateNumber, a.CreatedAt)).ToListAsync(ct);
+            a.ProjectName, a.VehicleName, a.CreatedBy!.FullName, a.StateNumber, a.CreatedAt,
+            a.Status == WorkflowStatus.Draft && currentUser.UserId == a.CreatedByUserId)).ToListAsync(ct);
     }
 }
 

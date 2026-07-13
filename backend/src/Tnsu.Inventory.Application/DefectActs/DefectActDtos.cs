@@ -67,7 +67,8 @@ public sealed record DefectActListItemDto(
     string VehicleName,
     string InitiatorFullName,
     string StateNumber,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    bool CanDelete);
 
 public sealed record ApprovalStepDto(
     Guid Id,

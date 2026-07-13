@@ -44,7 +44,7 @@ async function searchParts(query: string) {
       search: query || undefined
     });
     options.value = items.map((p) => ({
-      label: [p.name, p.catalogNumber, p.code].filter(Boolean).join(' · '),
+      label: [p.name, p.groupName, p.unit].filter(Boolean).join(' · '),
       value: p.name,
       part: p
     }));
@@ -105,11 +105,16 @@ watch(modalSearch, () => {
 });
 
 const modalColumns: DataTableColumns<SparePartDto> = [
-  { title: 'Наименование', key: 'name', ellipsis: { tooltip: true } },
-  { title: 'Кат. №', key: 'catalogNumber', width: 120, render: (r) => r.catalogNumber || '—' },
-  { title: 'Код', key: 'code', width: 100, render: (r) => r.code || '—' },
+  { title: 'Наименование ТМЦ', key: 'name', ellipsis: { tooltip: true } },
+  { title: 'Группа', key: 'groupName', width: 140, render: (r) => r.groupName || '—' },
   { title: 'Ед.', key: 'unit', width: 70, render: (r) => r.unit || '—' },
-  { title: 'Техника', key: 'vehicleName', width: 140, render: (r) => r.vehicleName || '—' },
+  {
+    title: 'Норм. модель',
+    key: 'vehicleName',
+    width: 200,
+    ellipsis: { tooltip: true },
+    render: (r) => r.vehicleName || '—'
+  },
   {
     title: '',
     key: 'actions',
@@ -126,17 +131,21 @@ const modalColumns: DataTableColumns<SparePartDto> = [
 
 <template>
   <div class="t-spare-part-field">
-    <NAutoComplete
-      :value="modelValue"
-      :options="autoOptions"
-      :loading="loading"
-      :disabled="disabled"
-      placeholder="Начните ввод или откройте справочник"
-      clearable
-      @update:value="onSearch"
-      @select="onSelect"
-    />
+    <div class="t-spare-part-field__input">
+      <NAutoComplete
+        :value="modelValue"
+        :options="autoOptions"
+        :loading="loading"
+        :disabled="disabled"
+        placeholder="Начните ввод или откройте справочник"
+        clearable
+        @update:value="onSearch"
+        @select="onSelect"
+      />
+    </div>
     <NButton
+      class="t-spare-part-field__btn"
+      size="small"
       secondary
       :disabled="disabled"
       title="Справочник запчастей"
@@ -175,14 +184,28 @@ const modalColumns: DataTableColumns<SparePartDto> = [
 <style scoped>
 .t-spare-part-field {
   display: flex;
-  gap: 8px;
-  align-items: center;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 10px;
   width: 100%;
+  min-width: 220px;
+  box-sizing: border-box;
+}
+
+.t-spare-part-field__input {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-.t-spare-part-field :deep(.n-auto-complete) {
-  flex: 1;
-  min-width: 0;
+.t-spare-part-field__input :deep(.n-auto-complete),
+.t-spare-part-field__input :deep(.n-input) {
+  width: 100%;
+}
+
+.t-spare-part-field__btn {
+  flex: 0 0 auto;
+  align-self: center;
+  white-space: nowrap;
+  margin-left: 2px;
 }
 </style>

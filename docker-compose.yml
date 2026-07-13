@@ -65,6 +65,7 @@ services:
       SharePoint__SparePartsCodeField: ${SHAREPOINT_SPARE_PARTS_CODE_FIELD:-}
       SharePoint__SparePartsUnitField: ${SHAREPOINT_SPARE_PARTS_UNIT_FIELD:-}
       SharePoint__SparePartsVehicleField: ${SHAREPOINT_SPARE_PARTS_VEHICLE_FIELD:-}
+      SharePoint__SparePartsGroupField: ${SHAREPOINT_SPARE_PARTS_GROUP_FIELD:-}
       Teams__WebhookUrl: ${TEAMS_WEBHOOK_URL:-}
       Procurement__BaseUrl: ${PROCUREMENT_BASE_URL:-}
       Notifications__Email__Host: ${NOTIFICATIONS_EMAIL_HOST:-mailhog}

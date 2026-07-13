@@ -44,7 +44,7 @@ const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
   {
     title: 'Наименование',
     key: 'name',
-    minWidth: 260,
+    minWidth: 320,
     render: (row, index) => h(SparePartNameField, {
       modelValue: row.name,
       catalogNumber: row.catalogNumber,

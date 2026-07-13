@@ -77,6 +77,7 @@ public sealed record PurchaseRequestListItemDto(
     string InitiatorFullName,
     string? CurrentApproverFullName,
     decimal EstimatedAmount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    bool CanDelete);
 
 public sealed record AssignExecutorRequest(Guid ExecutorUserId);

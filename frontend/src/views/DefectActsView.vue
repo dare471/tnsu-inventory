@@ -1,14 +1,46 @@
 <script setup lang="ts">
 import { h, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { NCard, NButton, NDataTable, NAlert, NSpace, NSpin, type DataTableColumns } from 'naive-ui';
+import {
+  NCard, NButton, NDataTable, NAlert, NSpace, NSpin, useMessage,
+  type DataTableColumns
+} from 'naive-ui';
 import { inventoryApi, type DefectActListItem } from '@/api/inventory';
 import { toApiError } from '@/api/client';
 
 const router = useRouter();
+const msg = useMessage();
 const items = ref<DefectActListItem[]>([]);
 const error = ref('');
 const loading = ref(true);
+const deletingId = ref<string | null>(null);
+
+async function load() {
+  loading.value = true;
+  error.value = '';
+  try {
+    items.value = await inventoryApi.listDefectActs();
+  } catch (e) {
+    error.value = toApiError(e).detail;
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function deleteDraft(row: DefectActListItem) {
+  if (!window.confirm(`Удалить черновик ${row.number}?`)) return;
+  deletingId.value = row.id;
+  try {
+    await inventoryApi.deleteDefectAct(row.id);
+    items.value = items.value.filter((x) => x.id !== row.id);
+    msg.success('Черновик удалён');
+  } catch (e) {
+    error.value = toApiError(e).detail;
+    msg.error(error.value);
+  } finally {
+    deletingId.value = null;
+  }
+}
 
 const columns: DataTableColumns<DefectActListItem> = [
   {
@@ -31,17 +63,28 @@ const columns: DataTableColumns<DefectActListItem> = [
     key: 'createdAt',
     width: 160,
     render: (row) => new Date(row.createdAt).toLocaleString('ru-RU')
+  },
+  {
+    title: '',
+    key: 'actions',
+    width: 110,
+    fixed: 'right',
+    render: (row) => {
+      const canDelete = row.canDelete || row.status === 'draft';
+      if (!canDelete) return null;
+      return h(NButton, {
+        size: 'small',
+        type: 'error',
+        tertiary: true,
+        loading: deletingId.value === row.id,
+        onClick: () => void deleteDraft(row)
+      }, () => 'Удалить');
+    }
   }
 ];
 
-onMounted(async () => {
-  try {
-    items.value = await inventoryApi.listDefectActs();
-  } catch (e) {
-    error.value = toApiError(e).detail;
-  } finally {
-    loading.value = false;
-  }
+onMounted(() => {
+  void load();
 });
 </script>
 

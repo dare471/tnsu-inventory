@@ -16,13 +16,14 @@ public sealed class SharePointSparePartsCatalog(
 {
     private static readonly ConcurrentDictionary<string, (DateTimeOffset Expires, object Value)> Cache = new();
     private static readonly string[] NameHints =
-        ["наименование", "название", "запчаст", "материал", "номенклатур", "title", "name"];
+        ["наименование тмц", "наименование", "тмц", "название", "запчаст", "материал", "номенклатур", "title", "name"];
     private static readonly string[] CatalogHints =
-        ["каталог", "кат", "catalog", "артикул", "part number", "partnumber"];
+        ["каталог", "кат. №", "кат №", "артикул", "catalog", "part number", "partnumber"];
     private static readonly string[] CodeHints = ["код", "code", "номер позиции"];
-    private static readonly string[] UnitHints = ["ед", "единиц", "unit", "uom"];
+    private static readonly string[] UnitHints = ["ед. изм", "ед изм", "единиц", "unit", "uom"];
     private static readonly string[] VehicleHints =
-        ["техник", "основн", "средств", "машин", "vehicle", "equipment", "ос "];
+        ["нормализованн", "модель", "техник", "основн", "средств", "машин", "vehicle", "equipment"];
+    private static readonly string[] GroupHints = ["группа", "group", "категор"];
 
     public async Task<IReadOnlyList<SparePartDto>> SearchAsync(
         string? vehicleName, string? search, CancellationToken ct)
@@ -155,11 +156,12 @@ public sealed class SharePointSparePartsCatalog(
                 Pick(cfg.SparePartsCatalogNumberField, CatalogHints),
                 Pick(cfg.SparePartsCodeField, CodeHints),
                 Pick(cfg.SparePartsUnitField, UnitHints),
-                Pick(cfg.SparePartsVehicleField, VehicleHints));
+                Pick(cfg.SparePartsVehicleField, VehicleHints),
+                Pick(cfg.SparePartsGroupField, GroupHints));
 
             logger.LogInformation(
-                "Spare parts field map: name={Name}, catalog={Catalog}, code={Code}, unit={Unit}, vehicle={Vehicle}",
-                mapping.NameField, mapping.CatalogField, mapping.CodeField, mapping.UnitField, mapping.VehicleField);
+                "Spare parts field map: name={Name}, unit={Unit}, vehicle={Vehicle}, group={Group}",
+                mapping.NameField, mapping.UnitField, mapping.VehicleField, mapping.GroupField);
             return mapping;
         });
     }
@@ -200,7 +202,7 @@ public sealed class SharePointSparePartsCatalog(
     {
         var id = item.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
         if (!item.TryGetProperty("fields", out var fields))
-            return new SparePartDto(id, "", null, null, null, null);
+            return new SparePartDto(id, "", null, null, null, null, null);
 
         return new SparePartDto(
             id,
@@ -208,7 +210,8 @@ public sealed class SharePointSparePartsCatalog(
             ReadString(fields, mapping.CatalogField),
             ReadString(fields, mapping.CodeField),
             ReadString(fields, mapping.UnitField),
-            ReadString(fields, mapping.VehicleField));
+            ReadString(fields, mapping.VehicleField),
+            ReadString(fields, mapping.GroupField));
     }
 
     private static string? ReadString(JsonElement fields, string? name)
@@ -232,7 +235,8 @@ public sealed class SharePointSparePartsCatalog(
         string? CatalogField,
         string? CodeField,
         string? UnitField,
-        string? VehicleField);
+        string? VehicleField,
+        string? GroupField);
 
     private sealed class IdResponse { public string? Id { get; set; } }
     private sealed class ListCollection { public List<ListInfo>? Value { get; set; } }

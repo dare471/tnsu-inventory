@@ -47,7 +47,8 @@ public sealed record SparePartDto(
     string? CatalogNumber,
     string? Code,
     string? Unit,
-    string? VehicleName);
+    string? VehicleName,
+    string? GroupName);
 
 public interface ISparePartsCatalog
 {

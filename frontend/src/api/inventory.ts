@@ -149,6 +149,7 @@ export interface UpdateDefectActRequest {
 export interface DefectActListItem {
   id: string; number: string; status: string; statusLabel: string;
   projectName: string; vehicleName: string; initiatorFullName: string; stateNumber: string; createdAt: string;
+  canDelete?: boolean;
 }
 export interface DefectActDto extends DefectActListItem {
   projectId: string; projectCode: string; vehicleId: string;
@@ -175,6 +176,7 @@ export interface PurchaseRequestListItem {
   projectName: string; vehicleName: string; initiatorFullName: string;
   currentApproverFullName?: string;
   estimatedAmount: number; createdAt: string;
+  canDelete?: boolean;
 }
 export interface PurchaseRequestDto extends PurchaseRequestListItem {
   defectActId?: string; defectActNumber?: string;
@@ -207,6 +209,7 @@ export interface SparePartDto {
   code?: string;
   unit?: string;
   vehicleName?: string;
+  groupName?: string;
 }
 export interface AttachmentDto {
   id: string; fileName: string; category: string; sizeBytes: number;

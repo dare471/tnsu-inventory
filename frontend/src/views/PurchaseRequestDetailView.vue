@@ -49,7 +49,7 @@ const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
   {
     title: 'Наименование',
     key: 'name',
-    minWidth: 260,
+    minWidth: 320,
     render: (row, index) => editable.value
       ? h(SparePartNameField, {
           modelValue: row.name,
@@ -378,7 +378,7 @@ async function deleteDraft() {
         <NButton v-if="inboxItem" secondary @click="openDecision('return')">Вернуть</NButton>
         <NButton secondary @click="printRequest">Печать / PDF</NButton>
         <NButton
-          v-if="request.canDelete"
+          v-if="request.canDelete || request.status === 'draft'"
           type="error"
           secondary
           :loading="deleting"

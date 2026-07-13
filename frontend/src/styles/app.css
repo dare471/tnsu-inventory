@@ -447,3 +447,31 @@ a:hover { text-decoration: underline; }
 .t-route-project-picker .n-select {
   width: min(480px, 100%);
 }
+
+/* Заявка — поле наименования + кнопка справочника */
+.t-spare-part-field {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 220px;
+  box-sizing: border-box;
+  padding: 2px 0;
+}
+
+.t-spare-part-field__input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.t-spare-part-field__input .n-auto-complete,
+.t-spare-part-field__input .n-input {
+  width: 100%;
+}
+
+.t-spare-part-field__btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  margin-left: 2px;
+}

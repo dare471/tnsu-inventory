@@ -392,7 +392,7 @@ async function deleteDraft() {
         <NButton v-if="act?.canCreatePurchaseRequest" type="primary" @click="createPurchase">Сформировать заявку</NButton>
         <NButton v-if="!isNew && act" secondary @click="printAct">Печать / PDF</NButton>
         <NButton
-          v-if="act?.canDelete"
+          v-if="act?.canDelete || act?.status === 'draft'"
           type="error"
           secondary
           :loading="deleting"

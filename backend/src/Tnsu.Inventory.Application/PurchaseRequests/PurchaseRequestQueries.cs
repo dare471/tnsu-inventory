@@ -110,7 +110,8 @@ public sealed class ListPurchaseRequestsHandler(IInventoryDbContext db, ICurrent
                 r.VehicleName,
                 InitiatorFullName = r.CreatedBy!.FullName,
                 r.EstimatedAmount,
-                r.CreatedAt
+                r.CreatedAt,
+                r.CreatedByUserId
             })
             .ToListAsync(ct);
 
@@ -136,7 +137,8 @@ public sealed class ListPurchaseRequestsHandler(IInventoryDbContext db, ICurrent
             r.InitiatorFullName,
             pendingByRequest.GetValueOrDefault(r.Id),
             r.EstimatedAmount,
-            r.CreatedAt)).ToList();
+            r.CreatedAt,
+            r.Status == WorkflowStatus.Draft && currentUser.UserId == r.CreatedByUserId)).ToList();
     }
 }
 
