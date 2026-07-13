@@ -63,6 +63,12 @@ export const inventoryApi = {
     apiClient
       .get<ContractorDto[]>(`/api/dictionaries/contractors${search ? `?search=${encodeURIComponent(search)}` : ''}`)
       .then((r) => r.data),
+  searchSpareParts: (params?: { vehicleName?: string; search?: string }) =>
+    apiClient
+      .get<SparePartDto[]>('/api/dictionaries/spare-parts', { params })
+      .then((r) => r.data),
+  deleteDefectAct: (id: string) => apiClient.delete(`/api/defect-acts/${id}`),
+  deletePurchaseRequest: (id: string) => apiClient.delete(`/api/purchase-requests/${id}`),
   listAttachments: (purchaseId: string) =>
     apiClient.get<AttachmentDto[]>(`/api/purchase-requests/${purchaseId}/attachments`).then((r) => r.data),
   uploadAttachment: async (purchaseId: string, file: File, category: string) => {
@@ -149,7 +155,7 @@ export interface DefectActDto extends DefectActListItem {
   vehicleGroupName: string; vinCode: string; vehicleYear?: number;
   malfunctionDescription: string; createdByFullName: string; signedAt?: string;
   parts: Array<{ id: string; lineNo: number; name: string; catalogNumber?: string; quantity: number; unit?: string; notes?: string }>;
-  canEdit: boolean; canSubmit: boolean; canCreatePurchaseRequest: boolean;
+  canEdit: boolean; canSubmit: boolean; canCreatePurchaseRequest: boolean; canDelete: boolean;
 }
 export interface PurchaseRequestLineInput {
   lineNo: number; code?: string; name: string; catalogNumber?: string;
@@ -178,7 +184,7 @@ export interface PurchaseRequestDto extends PurchaseRequestListItem {
   description: string; hasServiceNoteAttachment: boolean;
   createdByFullName: string; assignedExecutorFullName?: string;
   lines: Array<{ id: string; lineNo: number; code: string; name: string; catalogNumber?: string; quantity: number; unit?: string; estimatedUnitPrice?: number; estimatedAmount?: number; notes?: string }>;
-  canEdit: boolean; canSubmit: boolean; canCancel: boolean;
+  canEdit: boolean; canSubmit: boolean; canCancel: boolean; canDelete: boolean;
 }
 export interface InboxItem {
   stepId: string; documentType: string; documentId: string;
@@ -194,6 +200,14 @@ export interface ProjectSectionDto { id: string; projectId: string; code: string
 export interface WorkTypeDto { id: string; code: string; name: string }
 export interface NomenclatureDto { id: string; code: string; name: string; unit?: string }
 export interface ContractorDto { id: string; code: string; name: string; inn?: string }
+export interface SparePartDto {
+  id: string;
+  name: string;
+  catalogNumber?: string;
+  code?: string;
+  unit?: string;
+  vehicleName?: string;
+}
 export interface AttachmentDto {
   id: string; fileName: string; category: string; sizeBytes: number;
   sharePointUrl?: string; uploadedAt: string;

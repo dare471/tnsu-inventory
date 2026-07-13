@@ -225,6 +225,43 @@ public sealed class CancelPurchaseRequestHandler(IInventoryDbContext db, ICurren
     }
 }
 
+public sealed record DeleteDraftPurchaseRequestCommand(Guid Id) : IRequest;
+
+public sealed class DeleteDraftPurchaseRequestHandler(IInventoryDbContext db, ICurrentUser currentUser)
+    : IRequestHandler<DeleteDraftPurchaseRequestCommand>
+{
+    public async Task Handle(DeleteDraftPurchaseRequestCommand cmd, CancellationToken ct)
+    {
+        var request = await db.PurchaseRequests
+            .Include(r => r.Lines)
+            .Include(r => r.Attachments)
+            .Include(r => r.ApprovalSteps)
+            .FirstOrDefaultAsync(r => r.Id == cmd.Id, ct)
+            ?? throw new NotFoundException("PurchaseRequest", cmd.Id);
+
+        if (currentUser.UserId != request.CreatedByUserId)
+            throw new ForbiddenException("Удалить черновик может только инициатор.");
+
+        if (request.Status != WorkflowStatus.Draft)
+            throw new ConflictException("not_draft", "Удалять можно только черновики.");
+
+        var docAssignees = await db.DocumentApprovalAssignees
+            .Where(x => x.PurchaseRequestId == request.Id)
+            .ToListAsync(ct);
+        var orders = await db.SupplierOrders
+            .Where(o => o.PurchaseRequestId == request.Id)
+            .ToListAsync(ct);
+
+        db.DocumentApprovalAssignees.RemoveRange(docAssignees);
+        db.SupplierOrders.RemoveRange(orders);
+        db.ApprovalSteps.RemoveRange(request.ApprovalSteps);
+        db.Attachments.RemoveRange(request.Attachments);
+        db.PurchaseRequestLines.RemoveRange(request.Lines);
+        db.PurchaseRequests.Remove(request);
+        await db.SaveChangesAsync(ct);
+    }
+}
+
 public sealed record AssignExecutorCommand(Guid Id, AssignExecutorRequest Request) : IRequest<PurchaseRequestDto>;
 
 public sealed class AssignExecutorHandler(IInventoryDbContext db, ICurrentUser currentUser)

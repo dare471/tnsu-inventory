@@ -55,7 +55,8 @@ public sealed record DefectActDto(
     IReadOnlyList<DefectActPartDto> Parts,
     bool CanEdit,
     bool CanSubmit,
-    bool CanCreatePurchaseRequest);
+    bool CanCreatePurchaseRequest,
+    bool CanDelete);
 
 public sealed record DefectActListItemDto(
     Guid Id,

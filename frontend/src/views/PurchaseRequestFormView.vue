@@ -9,6 +9,7 @@ import {
   inventoryApi, type ProjectDto, type VehicleDto, type PurchaseRequestLineInput
 } from '@/api/inventory';
 import { toApiError } from '@/api/client';
+import SparePartNameField from '@/components/SparePartNameField.vue';
 
 const router = useRouter();
 
@@ -43,9 +44,15 @@ const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
   {
     title: 'Наименование',
     key: 'name',
-    render: (row, index) => h(NInput, {
-      value: row.name,
-      onUpdateValue: (v: string) => { lines.value[index].name = v; }
+    minWidth: 260,
+    render: (row, index) => h(SparePartNameField, {
+      modelValue: row.name,
+      catalogNumber: row.catalogNumber,
+      unit: row.unit,
+      vehicleName: vehicleName.value || null,
+      'onUpdate:modelValue': (v: string) => { lines.value[index].name = v; },
+      'onUpdate:catalogNumber': (v: string) => { lines.value[index].catalogNumber = v; },
+      'onUpdate:unit': (v: string) => { lines.value[index].unit = v; }
     })
   },
   {
@@ -227,14 +234,3 @@ async function save() {
     </NSpace>
   </NCard>
 </template>
-
-<style scoped>
-.t-grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 16px;
-}
-@media (max-width: 900px) {
-  .t-grid-2 { grid-template-columns: 1fr; }
-}
-</style>

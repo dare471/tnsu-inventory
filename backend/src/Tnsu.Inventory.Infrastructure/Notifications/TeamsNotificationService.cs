@@ -60,22 +60,28 @@ public sealed class CompositeNotificationService(
     TeamsNotificationService teams,
     PowerAutomateNotificationService powerAutomate,
     IOptions<NotificationsOptions> notificationsOptions,
-    NotificationUrlResolver urlResolver) : INotificationService
+    NotificationUrlResolver urlResolver,
+    ILogger<CompositeNotificationService> logger) : INotificationService
 {
     private bool UsePowerAutomate => notificationsOptions.Value.PowerAutomate.IsConfigured;
 
+    private async Task<bool> TryPowerAutomateAsync(
+        string email, string linkUrl, string status, string docNumber, CancellationToken ct)
+    {
+        if (!UsePowerAutomate) return false;
+        var ok = await powerAutomate.SendAsync(email, linkUrl, status, docNumber, ct);
+        if (!ok)
+            logger.LogWarning(
+                "Power Automate не доставил уведомление ({Status}, {Doc}). Fallback SMTP/Teams.",
+                status, docNumber);
+        return ok;
+    }
+
     public async Task SendApprovalReminderAsync(ApprovalNotification n, CancellationToken ct)
     {
-        if (UsePowerAutomate)
-        {
-            await powerAutomate.SendAsync(
-                n.RecipientEmail,
-                n.LinkUrl,
-                PowerAutomateNotificationStatus.Assigned,
-                n.DocumentNumber,
-                ct);
+        if (await TryPowerAutomateAsync(
+                n.RecipientEmail, n.LinkUrl, PowerAutomateNotificationStatus.Assigned, n.DocumentNumber, ct))
             return;
-        }
 
         await smtp.SendApprovalReminderAsync(n, ct);
         await teams.SendAdaptiveCardAsync(
@@ -88,34 +94,23 @@ public sealed class CompositeNotificationService(
     {
         if (UsePowerAutomate)
         {
-            await powerAutomate.SendAsync(
-                n.RecipientEmail,
-                n.LinkUrl,
-                PowerAutomateNotificationStatus.Assigned,
-                n.DocumentNumber,
-                ct);
+            var ok = await powerAutomate.SendAsync(
+                n.RecipientEmail, n.LinkUrl, PowerAutomateNotificationStatus.Assigned, n.DocumentNumber, ct);
 
             if (!string.IsNullOrWhiteSpace(n.ManagerEmail))
             {
-                await powerAutomate.SendAsync(
-                    n.ManagerEmail,
-                    n.LinkUrl,
-                    PowerAutomateNotificationStatus.Assigned,
-                    n.DocumentNumber,
-                    ct);
+                ok = await powerAutomate.SendAsync(
+                    n.ManagerEmail, n.LinkUrl, PowerAutomateNotificationStatus.Assigned, n.DocumentNumber, ct) || ok;
             }
 
             if (!string.IsNullOrWhiteSpace(n.ChiefMechanicEmail))
             {
-                await powerAutomate.SendAsync(
-                    n.ChiefMechanicEmail,
-                    n.LinkUrl,
-                    PowerAutomateNotificationStatus.Assigned,
-                    n.DocumentNumber,
-                    ct);
+                ok = await powerAutomate.SendAsync(
+                    n.ChiefMechanicEmail!, n.LinkUrl, PowerAutomateNotificationStatus.Assigned, n.DocumentNumber, ct) || ok;
             }
 
-            return;
+            if (ok) return;
+            logger.LogWarning("Power Automate escalation failed for {Doc}. Fallback SMTP/Teams.", n.DocumentNumber);
         }
 
         await smtp.SendEscalationAsync(n, ct);
@@ -131,16 +126,9 @@ public sealed class CompositeNotificationService(
 
     public async Task SendAssignedForApprovalAsync(WorkflowNotification n, CancellationToken ct)
     {
-        if (UsePowerAutomate)
-        {
-            await powerAutomate.SendAsync(
-                n.RecipientEmail,
-                n.LinkUrl,
-                PowerAutomateNotificationStatus.Assigned,
-                n.DocumentNumber,
-                ct);
+        if (await TryPowerAutomateAsync(
+                n.RecipientEmail, n.LinkUrl, PowerAutomateNotificationStatus.Assigned, n.DocumentNumber, ct))
             return;
-        }
 
         await smtp.SendAssignedForApprovalAsync(n, ct);
         await teams.SendAdaptiveCardAsync(
@@ -153,16 +141,9 @@ public sealed class CompositeNotificationService(
 
     public async Task SendApprovedAsync(WorkflowNotification n, CancellationToken ct)
     {
-        if (UsePowerAutomate)
-        {
-            await powerAutomate.SendAsync(
-                n.InitiatorEmail,
-                n.LinkUrl,
-                PowerAutomateNotificationStatus.Approved,
-                n.DocumentNumber,
-                ct);
+        if (await TryPowerAutomateAsync(
+                n.InitiatorEmail, n.LinkUrl, PowerAutomateNotificationStatus.Approved, n.DocumentNumber, ct))
             return;
-        }
 
         await smtp.SendApprovedAsync(n, ct);
         await teams.SendAdaptiveCardAsync(
@@ -175,16 +156,9 @@ public sealed class CompositeNotificationService(
 
     public async Task SendReturnedAsync(WorkflowNotification n, CancellationToken ct)
     {
-        if (UsePowerAutomate)
-        {
-            await powerAutomate.SendAsync(
-                n.InitiatorEmail,
-                n.LinkUrl,
-                PowerAutomateNotificationStatus.Returned,
-                n.DocumentNumber,
-                ct);
+        if (await TryPowerAutomateAsync(
+                n.InitiatorEmail, n.LinkUrl, PowerAutomateNotificationStatus.Returned, n.DocumentNumber, ct))
             return;
-        }
 
         await smtp.SendReturnedAsync(n, ct);
         var text = string.IsNullOrWhiteSpace(n.Comment)
@@ -200,16 +174,9 @@ public sealed class CompositeNotificationService(
 
     public async Task SendRejectedAsync(WorkflowNotification n, CancellationToken ct)
     {
-        if (UsePowerAutomate)
-        {
-            await powerAutomate.SendAsync(
-                n.InitiatorEmail,
-                n.LinkUrl,
-                PowerAutomateNotificationStatus.Rejected,
-                n.DocumentNumber,
-                ct);
+        if (await TryPowerAutomateAsync(
+                n.InitiatorEmail, n.LinkUrl, PowerAutomateNotificationStatus.Rejected, n.DocumentNumber, ct))
             return;
-        }
 
         await smtp.SendReturnedAsync(n, ct);
         var text = string.IsNullOrWhiteSpace(n.Comment)

@@ -16,11 +16,11 @@ public sealed class PowerAutomateNotificationService(
     private string? cachedToken;
     private DateTimeOffset tokenExpiresAt = DateTimeOffset.MinValue;
 
-    public Task SendAsync(string email, string linkUrl, string status, string docNumber, CancellationToken ct)
+    public async Task<bool> SendAsync(string email, string linkUrl, string status, string docNumber, CancellationToken ct)
     {
         var options = notificationsOptions.Value.PowerAutomate;
         if (string.IsNullOrWhiteSpace(options.FlowUrl) || string.IsNullOrWhiteSpace(email))
-            return Task.CompletedTask;
+            return false;
 
         var payload = new
         {
@@ -30,10 +30,10 @@ public sealed class PowerAutomateNotificationService(
             docNumber
         };
 
-        return InvokeAsync(options, payload, ct);
+        return await InvokeAsync(options, payload, ct);
     }
 
-    private async Task InvokeAsync(PowerAutomateOptions options, object payload, CancellationToken ct)
+    private async Task<bool> InvokeAsync(PowerAutomateOptions options, object payload, CancellationToken ct)
     {
         try
         {
@@ -48,7 +48,7 @@ public sealed class PowerAutomateNotificationService(
                 if (string.IsNullOrWhiteSpace(token))
                 {
                     logger.LogWarning("Power Automate: не удалось получить OAuth-токен, уведомление не отправлено");
-                    return;
+                    return false;
                 }
 
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -62,11 +62,15 @@ public sealed class PowerAutomateNotificationService(
                     "Power Automate flow returned {Status}: {Body}",
                     response.StatusCode,
                     body);
+                return false;
             }
+
+            return true;
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Power Automate notification failed");
+            return false;
         }
     }
 

@@ -33,6 +33,16 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddHttpClient<Dictionary1CTokenProvider>();
         services.AddSingleton<LocalAttachmentStorage>();
         services.AddHttpClient<SharePointAttachmentStorage>();
+        services.AddHttpClient<SharePointGraphTokenProvider>();
+        services.AddHttpClient<SharePointSparePartsCatalog>();
+        services.AddScoped<ISparePartsCatalog>(sp =>
+        {
+            var spOpts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SharePointOptions>>().Value;
+            return spOpts.Enabled
+                ? sp.GetRequiredService<SharePointSparePartsCatalog>()
+                : sp.GetRequiredService<EmptySparePartsCatalog>();
+        });
+        services.AddSingleton<EmptySparePartsCatalog>();
         services.AddScoped<IAttachmentStorage>(sp =>
         {
             var spOpts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SharePointOptions>>().Value;

@@ -27,6 +27,8 @@ internal static class PurchaseRequestMapper
                         && request.Status is not WorkflowStatus.Closed
                             and not WorkflowStatus.Cancelled
                             and not WorkflowStatus.Rejected;
+        var canDelete = request.Status == WorkflowStatus.Draft
+                        && currentUser.UserId == request.CreatedByUserId;
 
         return new PurchaseRequestDto(
             request.Id,
@@ -55,7 +57,8 @@ internal static class PurchaseRequestMapper
                 l.EstimatedUnitPrice, l.EstimatedAmount, l.Notes)).ToList(),
             canEdit,
             canSubmit,
-            canCancel);
+            canCancel,
+            canDelete);
     }
 }
 

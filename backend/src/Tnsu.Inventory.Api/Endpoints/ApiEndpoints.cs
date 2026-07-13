@@ -34,6 +34,12 @@ public static class ApiEndpoints
             Results.Ok(await m.Send(new ListNomenclatureQuery(search), ct)));
         api.MapGet("/dictionaries/contractors", async ([FromQuery] string? search, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new ListContractorsQuery(search), ct)));
+        api.MapGet("/dictionaries/spare-parts", async (
+            [FromQuery] string? vehicleName,
+            [FromQuery] string? search,
+            IMediator m,
+            CancellationToken ct) =>
+            Results.Ok(await m.Send(new ListSparePartsQuery(vehicleName, search), ct)));
 
         var defects = api.MapGroup("/defect-acts");
         defects.MapGet("", async ([FromQuery] string? search, IMediator m, CancellationToken ct) =>
@@ -56,6 +62,11 @@ public static class ApiEndpoints
             Results.Ok(await m.Send(new SubmitDefectActCommand(id), ct)));
         defects.MapPost("/{id:guid}/cancel", async (Guid id, [FromBody] CancelRequest body, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new CancelDefectActCommand(id, body.Comment), ct)));
+        defects.MapDelete("/{id:guid}", async (Guid id, IMediator m, CancellationToken ct) =>
+        {
+            await m.Send(new DeleteDraftDefectActCommand(id), ct);
+            return Results.NoContent();
+        });
         defects.MapGet("/{id:guid}/approvals", async (Guid id, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new GetDefectActApprovalsQuery(id), ct)));
         defects.MapGet("/{id:guid}/attachments", async (Guid id, IMediator m, CancellationToken ct) =>
@@ -103,6 +114,11 @@ public static class ApiEndpoints
             Results.Ok(await m.Send(new SubmitPurchaseRequestCommand(id), ct)));
         purchases.MapPost("/{id:guid}/cancel", async (Guid id, [FromBody] CancelRequest body, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new CancelPurchaseRequestCommand(id, body.Comment), ct)));
+        purchases.MapDelete("/{id:guid}", async (Guid id, IMediator m, CancellationToken ct) =>
+        {
+            await m.Send(new DeleteDraftPurchaseRequestCommand(id), ct);
+            return Results.NoContent();
+        });
         purchases.MapGet("/{id:guid}/approvals", async (Guid id, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new GetPurchaseRequestApprovalsQuery(id), ct)));
         purchases.MapGet("/{id:guid}/attachments", async (Guid id, IMediator m, CancellationToken ct) =>

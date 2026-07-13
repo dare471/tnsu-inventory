@@ -187,3 +187,40 @@ public sealed class CancelDefectActHandler(IInventoryDbContext db, ICurrentUser 
         return await DefectActMapper.ToDtoAsync(db, act.Id, currentUser, ct);
     }
 }
+
+public sealed record DeleteDraftDefectActCommand(Guid Id) : IRequest;
+
+public sealed class DeleteDraftDefectActHandler(IInventoryDbContext db, ICurrentUser currentUser)
+    : IRequestHandler<DeleteDraftDefectActCommand>
+{
+    public async Task Handle(DeleteDraftDefectActCommand cmd, CancellationToken ct)
+    {
+        var act = await db.DefectActs
+            .Include(a => a.Parts)
+            .Include(a => a.Attachments)
+            .Include(a => a.ApprovalSteps)
+            .FirstOrDefaultAsync(a => a.Id == cmd.Id, ct)
+            ?? throw new NotFoundException("DefectAct", cmd.Id);
+
+        if (currentUser.UserId != act.CreatedByUserId)
+            throw new ForbiddenException("Удалить черновик может только автор.");
+
+        if (act.Status != WorkflowStatus.Draft)
+            throw new ConflictException("not_draft", "Удалять можно только черновики.");
+
+        var linkedPr = await db.PurchaseRequests.AnyAsync(r => r.DefectActId == act.Id, ct);
+        if (linkedPr)
+            throw new ConflictException("has_purchase_request", "По акту уже есть заявка на закупку.");
+
+        var docAssignees = await db.DocumentApprovalAssignees
+            .Where(x => x.DefectActId == act.Id)
+            .ToListAsync(ct);
+
+        db.DocumentApprovalAssignees.RemoveRange(docAssignees);
+        db.ApprovalSteps.RemoveRange(act.ApprovalSteps);
+        db.Attachments.RemoveRange(act.Attachments);
+        db.DefectActParts.RemoveRange(act.Parts);
+        db.DefectActs.Remove(act);
+        await db.SaveChangesAsync(ct);
+    }
+}

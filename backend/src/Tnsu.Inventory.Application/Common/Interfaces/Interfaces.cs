@@ -41,6 +41,20 @@ public sealed record WorkTypeDto(Guid Id, string Code, string Name);
 public sealed record NomenclatureDto(Guid Id, string Code, string Name, string? Unit);
 public sealed record ContractorDto(Guid Id, string Code, string Name, string? Inn);
 
+public sealed record SparePartDto(
+    string Id,
+    string Name,
+    string? CatalogNumber,
+    string? Code,
+    string? Unit,
+    string? VehicleName);
+
+public interface ISparePartsCatalog
+{
+    Task<IReadOnlyList<SparePartDto>> SearchAsync(
+        string? vehicleName, string? search, CancellationToken ct);
+}
+
 public interface IZupEmployeeClient
 {
     Task<IReadOnlyList<ZupEmployeeDto>> ListEmployeesAsync(string employerCompany, CancellationToken ct);

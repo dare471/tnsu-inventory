@@ -34,3 +34,13 @@ public sealed class ListContractorsHandler(IDictionary1CClient client)
     public Task<IReadOnlyList<ContractorDto>> Handle(ListContractorsQuery q, CancellationToken ct) =>
         client.GetContractorsAsync(q.Search, ct);
 }
+
+public sealed record ListSparePartsQuery(string? VehicleName, string? Search)
+    : IRequest<IReadOnlyList<SparePartDto>>;
+
+public sealed class ListSparePartsHandler(ISparePartsCatalog catalog)
+    : IRequestHandler<ListSparePartsQuery, IReadOnlyList<SparePartDto>>
+{
+    public Task<IReadOnlyList<SparePartDto>> Handle(ListSparePartsQuery q, CancellationToken ct) =>
+        catalog.SearchAsync(q.VehicleName, q.Search, ct);
+}

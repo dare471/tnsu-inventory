@@ -64,7 +64,8 @@ public sealed record PurchaseRequestDto(
     IReadOnlyList<PurchaseRequestLineDto> Lines,
     bool CanEdit,
     bool CanSubmit,
-    bool CanCancel);
+    bool CanCancel,
+    bool CanDelete);
 
 public sealed record PurchaseRequestListItemDto(
     Guid Id,

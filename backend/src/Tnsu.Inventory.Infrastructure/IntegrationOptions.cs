@@ -11,6 +11,16 @@ public sealed class SharePointOptions
     public string ClientId { get; set; } = string.Empty;
     public string ClientSecret { get; set; } = string.Empty;
 
+    /// <summary>Имя списка SharePoint со справочником запчастей (например List8).</summary>
+    public string SparePartsListName { get; set; } = "List8";
+
+    /// <summary>Внутренние имена колонок списка. Пустые — авто-подбор по DisplayName.</summary>
+    public string? SparePartsNameField { get; set; }
+    public string? SparePartsCatalogNumberField { get; set; }
+    public string? SparePartsCodeField { get; set; }
+    public string? SparePartsUnitField { get; set; }
+    public string? SparePartsVehicleField { get; set; }
+
     public bool IsConfigured =>
         Enabled &&
         !string.IsNullOrWhiteSpace(TenantId) &&

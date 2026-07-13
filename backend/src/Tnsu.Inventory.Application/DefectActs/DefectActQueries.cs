@@ -29,6 +29,8 @@ internal static class DefectActMapper
                         && !string.IsNullOrWhiteSpace(act.MalfunctionDescription)
                         && hasPhoto;
         var canCreatePurchase = act.Status is WorkflowStatus.Approved or WorkflowStatus.Signed;
+        var canDelete = act.Status == WorkflowStatus.Draft
+                        && currentUser.UserId == act.CreatedByUserId;
 
         return new DefectActDto(
             act.Id,
@@ -52,7 +54,8 @@ internal static class DefectActMapper
                 p.Id, p.LineNo, p.Name, p.CatalogNumber, p.Quantity, p.Unit, p.Notes)).ToList(),
             canEdit,
             canSubmit,
-            canCreatePurchase);
+            canCreatePurchase,
+            canDelete);
     }
 }
 

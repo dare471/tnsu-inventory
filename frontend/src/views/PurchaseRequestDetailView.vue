@@ -11,6 +11,8 @@ import {
 } from '@/api/inventory';
 import { toApiError } from '@/api/client';
 
+import SparePartNameField from '@/components/SparePartNameField.vue';
+
 const route = useRoute();
 const router = useRouter();
 const msg = useMessage();
@@ -24,6 +26,7 @@ const error = ref('');
 const message = ref('');
 const loading = ref(true);
 const saving = ref(false);
+const deleting = ref(false);
 const decisionModalOpen = ref(false);
 const decisionKind = ref<'approve' | 'return'>('approve');
 const decisionComment = ref('');
@@ -35,6 +38,7 @@ const actingRoleLabel = computed(() => inboxItem.value?.approverRoleLabel ?? '�
 const editable = computed(() => !!request.value?.canEdit);
 
 const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
+  { title: '#', key: 'lineNo', width: 50 },
   {
     title: 'Код',
     key: 'code',
@@ -42,15 +46,21 @@ const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
     render: (row) => row.code
       ?? (request.value?.number ? `${request.value.number}-${String(row.lineNo).padStart(2, '0')}` : '—')
   },
-  { title: '#', key: 'lineNo', width: 50 },
   {
     title: 'Наименование',
     key: 'name',
-    render: (row, index) => h(NInput, {
-      value: row.name,
-      disabled: !editable.value,
-      onUpdateValue: (v: string) => { lines.value[index].name = v; }
-    })
+    minWidth: 260,
+    render: (row, index) => editable.value
+      ? h(SparePartNameField, {
+          modelValue: row.name,
+          catalogNumber: row.catalogNumber,
+          unit: row.unit,
+          vehicleName: request.value?.vehicleName || null,
+          'onUpdate:modelValue': (v: string) => { lines.value[index].name = v; },
+          'onUpdate:catalogNumber': (v: string) => { lines.value[index].catalogNumber = v; },
+          'onUpdate:unit': (v: string) => { lines.value[index].unit = v; }
+        })
+      : row.name
   },
   {
     title: 'Кат. №',
@@ -292,6 +302,23 @@ async function printRequest() {
     msg.error(error.value);
   }
 }
+
+async function deleteDraft() {
+  if (!request.value?.canDelete) return;
+  if (!window.confirm(`Удалить черновик ${request.value.number}?`)) return;
+  deleting.value = true;
+  error.value = '';
+  try {
+    await inventoryApi.deletePurchaseRequest(request.value.id);
+    msg.success('Черновик удалён');
+    await router.push({ name: 'purchase-requests' });
+  } catch (e) {
+    error.value = toApiError(e).detail;
+    msg.error(error.value);
+  } finally {
+    deleting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -349,7 +376,16 @@ async function printRequest() {
         <NButton v-if="request.canSubmit" type="primary" @click="submit">Отправить на согласование</NButton>
         <NButton v-if="inboxItem" type="primary" @click="openDecision('approve')">Согласовать</NButton>
         <NButton v-if="inboxItem" secondary @click="openDecision('return')">Вернуть</NButton>
-        <NButton secondary @click="printRequest">Печать</NButton>
+        <NButton secondary @click="printRequest">Печать / PDF</NButton>
+        <NButton
+          v-if="request.canDelete"
+          type="error"
+          secondary
+          :loading="deleting"
+          @click="deleteDraft"
+        >
+          Удалить черновик
+        </NButton>
         <NButton v-if="request.status === 'in_progress'" type="primary" @click="createOrder">
           Сформировать заказ поставщику
         </NButton>

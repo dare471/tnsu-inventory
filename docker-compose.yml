@@ -59,6 +59,12 @@ services:
       SharePoint__TenantId: ${SHAREPOINT_TENANT_ID:-}
       SharePoint__ClientId: ${SHAREPOINT_CLIENT_ID:-}
       SharePoint__ClientSecret: ${SHAREPOINT_CLIENT_SECRET:-}
+      SharePoint__SparePartsListName: ${SHAREPOINT_SPARE_PARTS_LIST:-List8}
+      SharePoint__SparePartsNameField: ${SHAREPOINT_SPARE_PARTS_NAME_FIELD:-}
+      SharePoint__SparePartsCatalogNumberField: ${SHAREPOINT_SPARE_PARTS_CATALOG_FIELD:-}
+      SharePoint__SparePartsCodeField: ${SHAREPOINT_SPARE_PARTS_CODE_FIELD:-}
+      SharePoint__SparePartsUnitField: ${SHAREPOINT_SPARE_PARTS_UNIT_FIELD:-}
+      SharePoint__SparePartsVehicleField: ${SHAREPOINT_SPARE_PARTS_VEHICLE_FIELD:-}
       Teams__WebhookUrl: ${TEAMS_WEBHOOK_URL:-}
       Procurement__BaseUrl: ${PROCUREMENT_BASE_URL:-}
       Notifications__Email__Host: ${NOTIFICATIONS_EMAIL_HOST:-mailhog}

@@ -26,6 +26,7 @@ const inboxItem = ref<InboxItem | null>(null);
 const error = ref('');
 const message = ref('');
 const loading = ref(true);
+const deleting = ref(false);
 const decisionModalOpen = ref(false);
 const decisionKind = ref<'approve' | 'return'>('approve');
 const decisionComment = ref('');
@@ -308,6 +309,23 @@ function printAct() {
     error.value = toApiError(e).detail;
   });
 }
+
+async function deleteDraft() {
+  if (!act.value?.canDelete || !id.value) return;
+  if (!window.confirm(`Удалить черновик ${act.value.number}?`)) return;
+  deleting.value = true;
+  error.value = '';
+  try {
+    await inventoryApi.deleteDefectAct(id.value);
+    msg.success('Черновик удалён');
+    await router.push({ name: 'defect-acts' });
+  } catch (e) {
+    error.value = toApiError(e).detail;
+    msg.error(error.value);
+  } finally {
+    deleting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -372,7 +390,16 @@ function printAct() {
         <NButton v-if="inboxItem" type="primary" @click="openDecision('approve')">Согласовать</NButton>
         <NButton v-if="inboxItem" secondary @click="openDecision('return')">Вернуть</NButton>
         <NButton v-if="act?.canCreatePurchaseRequest" type="primary" @click="createPurchase">Сформировать заявку</NButton>
-        <NButton v-if="!isNew && act" secondary @click="printAct">Печать</NButton>
+        <NButton v-if="!isNew && act" secondary @click="printAct">Печать / PDF</NButton>
+        <NButton
+          v-if="act?.canDelete"
+          type="error"
+          secondary
+          :loading="deleting"
+          @click="deleteDraft"
+        >
+          Удалить черновик
+        </NButton>
       </NSpace>
 
       <div v-if="id">
