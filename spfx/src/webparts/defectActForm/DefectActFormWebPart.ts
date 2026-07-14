@@ -21,7 +21,9 @@ export default class DefectActFormWebPart extends MechanizationBaseWebPart<IDefe
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
     return {
       pages: [{
-        header: { description: 'Форма дефектного акта' },
+        header: {
+          description: 'Форма дефектного акта. ID — из URL: ?documentId={guid} (или ?DocId=).'
+        },
         groups: [{
           groupName: 'Backend',
           groupFields: [

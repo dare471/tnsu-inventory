@@ -329,6 +329,6 @@ internal static class WorkflowNotificationFactory
 
     private static string BuildLink(string documentType, Guid documentId) =>
         documentType == DocumentTypes.DefectAct
-            ? $"/defect-acts/{documentId}"
-            : $"/purchase-requests/{documentId}";
+            ? $"/defect-acts/{documentId:D}"
+            : $"/purchase-requests/{documentId:D}";
 }

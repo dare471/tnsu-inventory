@@ -19,7 +19,7 @@ export default class PurchaseRequestFormWebPart extends MechanizationBaseWebPart
     return {
       pages: [{
         header: {
-          description: 'Форма заявки. ID заявки — из URL: ?documentId={guid} (или ?id=, ?requestId=).'
+          description: 'Форма заявки. ID — из URL: ?documentId={guid} (или ?DocId=).'
         },
         groups: [{
           groupName: 'Backend',

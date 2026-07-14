@@ -9,12 +9,12 @@ public sealed class AppOptions
     public string AttachmentStoragePath { get; set; } = "/var/lib/tnsu-inventory/attachments";
 
     // Страницы SharePoint с веб-частями «формы». Если заданы — ссылки в уведомлениях
-    // ведут на них в виде "{PageUrl}?DocId={id}".
+    // ведут на них в виде "{PageUrl}?documentId={guid}&DocId={guid}".
     public string? DefectActPageUrl { get; set; }
     public string? PurchaseRequestPageUrl { get; set; }
 
-    // Единая страница с веб-частью «Списки/Входящие». Если задана (и нет отдельной
-    // страницы формы) — ссылка = "{PageUrl}?docType={type}&DocId={id}".
+    // Единая страница со списками. Если задана (и нет отдельной страницы формы) —
+    // ссылка = "{PageUrl}?docType={type}&documentId={guid}&DocId={guid}".
     public string? ListsPageUrl { get; set; }
 }
 

@@ -22,15 +22,63 @@ public sealed class PowerAutomateNotificationService(
         if (string.IsNullOrWhiteSpace(options.FlowUrl) || string.IsNullOrWhiteSpace(email))
             return false;
 
+        var absoluteLink = urlResolver.ToAbsolute(linkUrl);
+        TryExtractDocument(absoluteLink, linkUrl, out var documentType, out var documentId);
+
         var payload = new
         {
             email = email.Trim(),
-            linkURL = urlResolver.ToAbsolute(linkUrl),
+            linkURL = absoluteLink,
             status,
-            docNumber
+            docNumber,
+            documentId,
+            documentType
         };
 
         return await InvokeAsync(options, payload, ct);
+    }
+
+    private static void TryExtractDocument(
+        string absoluteLink, string originalLink, out string? documentType, out string? documentId)
+    {
+        documentType = null;
+        documentId = null;
+
+        static string? Q(string url, string name)
+        {
+            var qIndex = url.IndexOf('?');
+            if (qIndex < 0) return null;
+            foreach (var part in url[(qIndex + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var eq = part.IndexOf('=');
+                if (eq <= 0) continue;
+                var key = Uri.UnescapeDataString(part[..eq]);
+                if (!key.Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
+                return Uri.UnescapeDataString(part[(eq + 1)..]);
+            }
+            return null;
+        }
+
+        documentId = Q(absoluteLink, "documentId") ?? Q(absoluteLink, "DocId");
+        documentType = Q(absoluteLink, "docType") ?? Q(absoluteLink, "documentType");
+
+        if (documentId is null || documentType is null)
+        {
+            if (originalLink.Contains("/defect-acts/", StringComparison.OrdinalIgnoreCase))
+            {
+                documentType ??= "defect_act";
+                var idx = originalLink.LastIndexOf('/');
+                if (idx >= 0 && Guid.TryParse(originalLink[(idx + 1)..].Split('?', '#')[0], out var gid))
+                    documentId ??= gid.ToString("D");
+            }
+            else if (originalLink.Contains("/purchase-requests/", StringComparison.OrdinalIgnoreCase))
+            {
+                documentType ??= "purchase_request";
+                var idx = originalLink.LastIndexOf('/');
+                if (idx >= 0 && Guid.TryParse(originalLink[(idx + 1)..].Split('?', '#')[0], out var gid))
+                    documentId ??= gid.ToString("D");
+            }
+        }
     }
 
     private async Task<bool> InvokeAsync(PowerAutomateOptions options, object payload, CancellationToken ct)

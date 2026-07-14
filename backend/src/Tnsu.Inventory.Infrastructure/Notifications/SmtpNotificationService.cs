@@ -9,50 +9,53 @@ namespace Tnsu.Inventory.Infrastructure.Notifications;
 
 public sealed class SmtpNotificationService(
     IOptions<NotificationsOptions> notificationsOptions,
+    NotificationUrlResolver urlResolver,
     ILogger<SmtpNotificationService> logger)
 {
     public Task SendApprovalReminderAsync(ApprovalNotification n, CancellationToken ct) =>
         SendAsync(n.RecipientEmail,
             $"Напоминание: согласование {n.DocumentNumber}",
-            $"На согласовании {n.PendingWorkingDays} раб. дн.\n{n.LinkUrl}",
+            $"На согласовании {n.PendingWorkingDays} раб. дн.\n{urlResolver.ToAbsolute(n.LinkUrl)}",
             ct);
 
     public async Task SendEscalationAsync(ApprovalNotification n, CancellationToken ct)
     {
+        var link = urlResolver.ToAbsolute(n.LinkUrl);
         await SendAsync(n.RecipientEmail,
             $"Эскалация: согласование {n.DocumentNumber}",
-            $"Не обработан {n.PendingWorkingDays} раб. дн.\n{n.LinkUrl}", ct);
+            $"Не обработан {n.PendingWorkingDays} раб. дн.\n{link}", ct);
 
         if (!string.IsNullOrWhiteSpace(n.ManagerEmail))
             await SendAsync(n.ManagerEmail,
                 $"Эскалация руководителю: {n.DocumentNumber}",
-                $"Согласующий {n.RecipientName} не обработал.\n{n.LinkUrl}", ct);
+                $"Согласующий {n.RecipientName} не обработал.\n{link}", ct);
 
         if (!string.IsNullOrWhiteSpace(n.ChiefMechanicEmail))
             await SendAsync(n.ChiefMechanicEmail,
                 $"Эскалация главному механику: {n.DocumentNumber}",
-                $"{n.DocumentNumber} просрочен.\n{n.LinkUrl}", ct);
+                $"{n.DocumentNumber} просрочен.\n{link}", ct);
     }
 
     public Task SendAssignedForApprovalAsync(WorkflowNotification n, CancellationToken ct) =>
         SendAsync(
             n.RecipientEmail,
             $"На согласовании: {n.DocumentNumber}",
-            $"{n.DocumentNumber}\n{n.LinkUrl}",
+            $"{n.DocumentNumber}\n{urlResolver.ToAbsolute(n.LinkUrl)}",
             ct);
 
     public Task SendApprovedAsync(WorkflowNotification n, CancellationToken ct) =>
         SendAsync(
             n.InitiatorEmail,
             $"Согласовано: {n.DocumentNumber}",
-            $"{n.DocumentNumber}\n{n.LinkUrl}",
+            $"{n.DocumentNumber}\n{urlResolver.ToAbsolute(n.LinkUrl)}",
             ct);
 
     public Task SendReturnedAsync(WorkflowNotification n, CancellationToken ct)
     {
+        var link = urlResolver.ToAbsolute(n.LinkUrl);
         var body = string.IsNullOrWhiteSpace(n.Comment)
-            ? $"{n.DocumentNumber} возвращён на доработку.\n{n.LinkUrl}"
-            : $"{n.DocumentNumber} возвращён на доработку.\n{n.Comment.Trim()}\n{n.LinkUrl}";
+            ? $"{n.DocumentNumber} возвращён на доработку.\n{link}"
+            : $"{n.DocumentNumber} возвращён на доработку.\n{n.Comment.Trim()}\n{link}";
         return SendAsync(
             n.InitiatorEmail,
             $"Возврат: {n.DocumentNumber}",

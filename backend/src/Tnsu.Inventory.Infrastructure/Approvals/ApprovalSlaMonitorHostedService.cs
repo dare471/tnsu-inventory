@@ -61,12 +61,17 @@ public sealed class ApprovalSlaMonitorHostedService(
 
             var docType = step.DocumentType;
             var docId = step.DefectActId ?? step.PurchaseRequestId ?? Guid.Empty;
+            if (docId == Guid.Empty) continue;
+
+            var docNumber = docType == DocumentTypes.DefectAct
+                ? (await db.DefectActs.AsNoTracking().Where(a => a.Id == docId).Select(a => a.Number).FirstOrDefaultAsync(ct))
+                : (await db.PurchaseRequests.AsNoTracking().Where(r => r.Id == docId).Select(r => r.Number).FirstOrDefaultAsync(ct));
 
             var link = docType == DocumentTypes.DefectAct
-                ? $"/defect-acts/{docId}"
-                : $"/purchase-requests/{docId}";
+                ? $"/defect-acts/{docId:D}"
+                : $"/purchase-requests/{docId:D}";
             var notification = new ApprovalNotification(
-                step.Id, docType, docId, docType,
+                step.Id, docType, docId, docNumber ?? docType,
                 approver.Email, approver.FullName,
                 managerEmail, chief?.Email,
                 pendingDays, link);
