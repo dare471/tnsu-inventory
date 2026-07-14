@@ -87,6 +87,7 @@ public sealed class PowerAutomateOptions
 public static class PowerAutomateNotificationStatus
 {
     public const string Assigned = "На согласовании";
+    public const string AwaitingExecution = "На исполнение";
     public const string Approved = "Согласовано";
     public const string Rejected = "Отклонено";
     public const string Returned = "Возврат на доработку";

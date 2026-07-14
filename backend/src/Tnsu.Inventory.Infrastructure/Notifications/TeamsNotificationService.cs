@@ -139,6 +139,21 @@ public sealed class CompositeNotificationService(
             ct);
     }
 
+    public async Task SendAwaitingExecutionAsync(WorkflowNotification n, CancellationToken ct)
+    {
+        if (await TryPowerAutomateAsync(
+                n.RecipientEmail, n.LinkUrl, PowerAutomateNotificationStatus.AwaitingExecution, n.DocumentNumber, ct))
+            return;
+
+        await smtp.SendAssignedForApprovalAsync(n, ct);
+        await teams.SendAdaptiveCardAsync(
+            $"На исполнение: {n.DocumentNumber}",
+            $"{n.DocumentNumber} — назначьте исполнителя",
+            urlResolver.ToAbsolute(n.LinkUrl),
+            [n.RecipientEmail],
+            ct);
+    }
+
     public async Task SendApprovedAsync(WorkflowNotification n, CancellationToken ct)
     {
         if (await TryPowerAutomateAsync(

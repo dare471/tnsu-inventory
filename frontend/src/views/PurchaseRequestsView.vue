@@ -55,6 +55,13 @@ const columns: DataTableColumns<PurchaseRequestListItem> = [
   },
   { title: 'Статус', key: 'statusLabel', width: 160, ellipsis: { tooltip: true } },
   {
+    title: 'Исполнитель',
+    key: 'assignedExecutorFullName',
+    width: 180,
+    ellipsis: { tooltip: true },
+    render: (row) => row.assignedExecutorFullName || '—'
+  },
+  {
     title: 'На согласовании у',
     key: 'currentApproverFullName',
     width: 200,

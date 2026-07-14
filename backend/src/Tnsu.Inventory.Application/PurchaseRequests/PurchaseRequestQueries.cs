@@ -29,6 +29,13 @@ internal static class PurchaseRequestMapper
                             and not WorkflowStatus.Rejected;
         var canDelete = request.Status == WorkflowStatus.Draft
                         && currentUser.UserId == request.CreatedByUserId;
+        var canAssignExecutor = request.Status == WorkflowStatus.Approved
+                                && MechanizationRole.CanAssignExecutor(currentUser.Role);
+        var canStartExecution = request.Status == WorkflowStatus.ExecutorAssigned
+                                && currentUser.UserId == request.AssignedExecutorUserId;
+        var canClose = request.Status == WorkflowStatus.InProgress
+                       && (currentUser.UserId == request.AssignedExecutorUserId
+                           || MechanizationRole.CanAssignExecutor(currentUser.Role));
 
         return new PurchaseRequestDto(
             request.Id,
@@ -58,7 +65,10 @@ internal static class PurchaseRequestMapper
             canEdit,
             canSubmit,
             canCancel,
-            canDelete);
+            canDelete,
+            canAssignExecutor,
+            canStartExecution,
+            canClose);
     }
 }
 
@@ -90,7 +100,10 @@ public sealed class ListPurchaseRequestsHandler(IInventoryDbContext db, ICurrent
                 .Distinct()
                 .ToListAsync(ct);
 
-            query = query.Where(r => r.CreatedByUserId == userId || participantIds.Contains(r.Id));
+            query = query.Where(r =>
+                r.CreatedByUserId == userId
+                || r.AssignedExecutorUserId == userId
+                || participantIds.Contains(r.Id));
         }
 
         if (!string.IsNullOrWhiteSpace(q.Search))
@@ -109,6 +122,7 @@ public sealed class ListPurchaseRequestsHandler(IInventoryDbContext db, ICurrent
                 r.ProjectName,
                 r.VehicleName,
                 InitiatorFullName = r.CreatedBy!.FullName,
+                AssignedExecutorFullName = r.AssignedExecutor != null ? r.AssignedExecutor.FullName : null,
                 r.EstimatedAmount,
                 r.CreatedAt,
                 r.CreatedByUserId
@@ -136,6 +150,7 @@ public sealed class ListPurchaseRequestsHandler(IInventoryDbContext db, ICurrent
             r.VehicleName,
             r.InitiatorFullName,
             pendingByRequest.GetValueOrDefault(r.Id),
+            r.AssignedExecutorFullName,
             r.EstimatedAmount,
             r.CreatedAt,
             r.Status == WorkflowStatus.Draft && currentUser.UserId == r.CreatedByUserId)).ToList();

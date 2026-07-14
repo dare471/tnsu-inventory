@@ -90,6 +90,7 @@ public interface INotificationService
     Task SendApprovalReminderAsync(ApprovalNotification notification, CancellationToken ct);
     Task SendEscalationAsync(ApprovalNotification notification, CancellationToken ct);
     Task SendAssignedForApprovalAsync(WorkflowNotification notification, CancellationToken ct);
+    Task SendAwaitingExecutionAsync(WorkflowNotification notification, CancellationToken ct);
     Task SendApprovedAsync(WorkflowNotification notification, CancellationToken ct);
     Task SendReturnedAsync(WorkflowNotification notification, CancellationToken ct);
     Task SendRejectedAsync(WorkflowNotification notification, CancellationToken ct);

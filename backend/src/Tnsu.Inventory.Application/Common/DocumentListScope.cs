@@ -6,5 +6,7 @@ namespace Tnsu.Inventory.Application.Common;
 internal static class DocumentListScope
 {
     public static bool IsGlobalAdmin(ICurrentUser user) =>
-        user.Role == MechanizationRole.ChiefMechanic;
+        user.Role is MechanizationRole.ChiefMechanic
+            or MechanizationRole.CommercialDirector
+            or MechanizationRole.OmtsHead;
 }

@@ -40,6 +40,17 @@ public static class ApiEndpoints
             IMediator m,
             CancellationToken ct) =>
             Results.Ok(await m.Send(new ListSparePartsQuery(vehicleName, search), ct)));
+        api.MapGet("/dictionaries/executors", async (InventoryDbContext db, CancellationToken ct) =>
+        {
+            var roles = MechanizationRole.ExecutorRoles;
+            var items = await db.Users.AsNoTracking()
+                .Where(u => u.IsActive && roles.Contains(u.Role))
+                .OrderBy(u => u.FullName)
+                .Select(u => new AdminUserOptionDto(
+                    u.Id, u.FullName, u.Email, u.Role, MechanizationRole.Label(u.Role)))
+                .ToListAsync(ct);
+            return Results.Ok(items);
+        });
 
         var defects = api.MapGroup("/defect-acts");
         defects.MapGet("", async ([FromQuery] string? search, IMediator m, CancellationToken ct) =>
@@ -678,7 +689,9 @@ public static class ApiEndpoints
     }
 
     private static bool IsAdminRole(string? role) =>
-        role is MechanizationRole.ChiefMechanic or MechanizationRole.OmtsHead;
+        role is MechanizationRole.ChiefMechanic
+            or MechanizationRole.OmtsHead
+            or MechanizationRole.CommercialDirector;
 }
 
 public sealed record CancelRequest(string Comment);

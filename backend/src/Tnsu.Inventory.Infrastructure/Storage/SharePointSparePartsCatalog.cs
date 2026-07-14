@@ -16,7 +16,7 @@ public sealed class SharePointSparePartsCatalog(
 {
     private static readonly ConcurrentDictionary<string, (DateTimeOffset Expires, object Value)> Cache = new();
     private static readonly string[] NameHints =
-        ["наименование тмц", "наименование", "тмц", "название", "запчаст", "материал", "номенклатур", "title", "name"];
+        ["наименование тмц", "наименование", "тмц", "название", "запчаст", "материал", "номенклатур", "name", "title"];
     private static readonly string[] CatalogHints =
         ["каталог", "кат. №", "кат №", "артикул", "catalog", "part number", "partnumber"];
     private static readonly string[] CodeHints = ["код", "code", "номер позиции"];
@@ -49,14 +49,21 @@ public sealed class SharePointSparePartsCatalog(
             var items = await LoadItemsAsync(siteId, listId, token, ct);
 
             IEnumerable<SparePartDto> query = items.Select(i => MapItem(i, mapping));
+            var allMapped = query.ToList();
 
             if (!string.IsNullOrWhiteSpace(vehicleName) && mapping.VehicleField is not null)
             {
                 var vn = vehicleName.Trim();
-                query = query.Where(p =>
+                var filtered = allMapped.Where(p =>
                     string.IsNullOrWhiteSpace(p.VehicleName) ||
                     p.VehicleName.Contains(vn, StringComparison.OrdinalIgnoreCase) ||
-                    vn.Contains(p.VehicleName, StringComparison.OrdinalIgnoreCase));
+                    vn.Contains(p.VehicleName, StringComparison.OrdinalIgnoreCase)).ToList();
+                // Если по технике ничего не нашлось — показываем весь справочник (имена техники могут не совпадать 1:1).
+                query = filtered.Count > 0 ? filtered : allMapped;
+            }
+            else
+            {
+                query = allMapped;
             }
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -140,13 +147,17 @@ public sealed class SharePointSparePartsCatalog(
             {
                 if (!string.IsNullOrWhiteSpace(configured))
                     return configured;
-                foreach (var col in cols)
+                // Сначала по приоритету подсказок (иначе Title часто перебивает «Наименование ТМЦ»).
+                foreach (var hint in hints)
                 {
-                    var display = col.DisplayName ?? "";
-                    var name = col.Name ?? "";
-                    if (hints.Any(h => display.Contains(h, StringComparison.OrdinalIgnoreCase) ||
-                                       name.Contains(h, StringComparison.OrdinalIgnoreCase)))
-                        return name;
+                    foreach (var col in cols)
+                    {
+                        var display = col.DisplayName ?? "";
+                        var name = col.Name ?? "";
+                        if (display.Contains(hint, StringComparison.OrdinalIgnoreCase) ||
+                            name.Contains(hint, StringComparison.OrdinalIgnoreCase))
+                            return name;
+                    }
                 }
                 return fallback;
             }

@@ -38,7 +38,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ISparePartsCatalog>(sp =>
         {
             var spOpts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SharePointOptions>>().Value;
-            return spOpts.Enabled
+            // Справочник читаем, если задан сайт/список (токен — SharePoint app или ZUP/Dictionary1C).
+            var canReadList = !string.IsNullOrWhiteSpace(spOpts.SiteUrl)
+                              && !string.IsNullOrWhiteSpace(spOpts.SparePartsListName);
+            return canReadList
                 ? sp.GetRequiredService<SharePointSparePartsCatalog>()
                 : sp.GetRequiredService<EmptySparePartsCatalog>();
         });

@@ -2,12 +2,13 @@
 import { computed, h, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
-  NCard, NButton, NAlert, NSpace, NDataTable, NTag, NUpload, NInput, NFormItem, NModal, NInputNumber, useMessage,
+  NCard, NButton, NAlert, NSpace, NDataTable, NTag, NUpload, NInput, NFormItem, NModal, NInputNumber, NSelect, useMessage,
   type DataTableColumns, type UploadFileInfo
 } from 'naive-ui';
 import {
   inventoryApi, type ApprovalStepDto, type AttachmentDto,
-  type PurchaseRequestDto, type SupplierOrderDto, type InboxItem, type PurchaseRequestLineInput
+  type PurchaseRequestDto, type SupplierOrderDto, type InboxItem, type PurchaseRequestLineInput,
+  type AdminUserOptionDto
 } from '@/api/inventory';
 import { toApiError } from '@/api/client';
 
@@ -22,6 +23,11 @@ const approvals = ref<ApprovalStepDto[]>([]);
 const attachments = ref<AttachmentDto[]>([]);
 const supplierOrder = ref<SupplierOrderDto | null>(null);
 const inboxItem = ref<InboxItem | null>(null);
+const executors = ref<AdminUserOptionDto[]>([]);
+const selectedExecutorId = ref<string | null>(null);
+const assigning = ref(false);
+const starting = ref(false);
+const closing = ref(false);
 const error = ref('');
 const message = ref('');
 const loading = ref(true);
@@ -178,6 +184,7 @@ async function load() {
     supplierOrder.value = await inventoryApi.getSupplierOrder(id);
     const inbox = await inventoryApi.getInbox();
     inboxItem.value = inbox.find((x) => x.documentType === 'purchase_request' && x.documentId === id) ?? null;
+    await loadExecutors();
   } catch (e) {
     error.value = toApiError(e).detail;
   } finally {
@@ -304,7 +311,7 @@ async function printRequest() {
 }
 
 async function deleteDraft() {
-  if (!request.value?.canDelete) return;
+  if (!request.value?.canDelete && request.value?.status !== 'draft') return;
   if (!window.confirm(`Удалить черновик ${request.value.number}?`)) return;
   deleting.value = true;
   error.value = '';
@@ -317,6 +324,73 @@ async function deleteDraft() {
     msg.error(error.value);
   } finally {
     deleting.value = false;
+  }
+}
+
+async function loadExecutors() {
+  try {
+    executors.value = await inventoryApi.listExecutors();
+  } catch {
+    executors.value = [];
+  }
+}
+
+const executorOptions = computed(() =>
+  executors.value.map((u) => ({
+    label: `${u.fullName} (${u.roleLabel})`,
+    value: u.id
+  }))
+);
+
+async function assignExecutor() {
+  if (!request.value || !selectedExecutorId.value) {
+    error.value = 'Выберите исполнителя.';
+    return;
+  }
+  assigning.value = true;
+  error.value = '';
+  try {
+    bindRequest(await inventoryApi.assignExecutor(request.value.id, selectedExecutorId.value));
+    message.value = 'Исполнитель назначен.';
+    msg.success(message.value);
+  } catch (e) {
+    error.value = toApiError(e).detail;
+    msg.error(error.value);
+  } finally {
+    assigning.value = false;
+  }
+}
+
+async function startExecution() {
+  if (!request.value) return;
+  starting.value = true;
+  error.value = '';
+  try {
+    bindRequest(await inventoryApi.startPurchaseExecution(request.value.id));
+    message.value = 'Заявка взята в работу.';
+    msg.success(message.value);
+  } catch (e) {
+    error.value = toApiError(e).detail;
+    msg.error(error.value);
+  } finally {
+    starting.value = false;
+  }
+}
+
+async function closeRequest() {
+  if (!request.value) return;
+  if (!window.confirm(`Закрыть заявку ${request.value.number}?`)) return;
+  closing.value = true;
+  error.value = '';
+  try {
+    bindRequest(await inventoryApi.closePurchaseRequest(request.value.id));
+    message.value = 'Заявка закрыта.';
+    msg.success(message.value);
+  } catch (e) {
+    error.value = toApiError(e).detail;
+    msg.error(error.value);
+  } finally {
+    closing.value = false;
   }
 }
 </script>
@@ -344,6 +418,23 @@ async function deleteDraft() {
           >{{ request.defectActNumber }}</a>
         </div>
         <div><strong>Инициатор:</strong> {{ request.createdByFullName }}</div>
+        <div><strong>Исполнитель:</strong> {{ request.assignedExecutorFullName || '—' }}</div>
+      </div>
+
+      <div v-if="request.canAssignExecutor" class="t-assign-executor">
+        <h3 style="margin:0 0 12px">Назначение исполнителя</h3>
+        <NSpace align="end">
+          <NFormItem label="Исполнитель" style="min-width:320px;margin-bottom:0">
+            <NSelect
+              v-model:value="selectedExecutorId"
+              filterable
+              clearable
+              :options="executorOptions"
+              placeholder="Выберите исполнителя"
+            />
+          </NFormItem>
+          <NButton type="primary" :loading="assigning" @click="assignExecutor">Назначить</NButton>
+        </NSpace>
       </div>
 
       <NFormItem label="Описание / обоснование">
@@ -377,6 +468,22 @@ async function deleteDraft() {
         <NButton v-if="inboxItem" type="primary" @click="openDecision('approve')">Согласовать</NButton>
         <NButton v-if="inboxItem" secondary @click="openDecision('return')">Вернуть</NButton>
         <NButton secondary @click="printRequest">Печать / PDF</NButton>
+        <NButton
+          v-if="request.canStartExecution"
+          type="primary"
+          :loading="starting"
+          @click="startExecution"
+        >
+          Взять в работу
+        </NButton>
+        <NButton
+          v-if="request.canClose"
+          type="primary"
+          :loading="closing"
+          @click="closeRequest"
+        >
+          Закрыть заявку
+        </NButton>
         <NButton
           v-if="request.canDelete || request.status === 'draft'"
           type="error"

@@ -65,7 +65,10 @@ public sealed record PurchaseRequestDto(
     bool CanEdit,
     bool CanSubmit,
     bool CanCancel,
-    bool CanDelete);
+    bool CanDelete,
+    bool CanAssignExecutor,
+    bool CanStartExecution,
+    bool CanClose);
 
 public sealed record PurchaseRequestListItemDto(
     Guid Id,
@@ -76,6 +79,7 @@ public sealed record PurchaseRequestListItemDto(
     string VehicleName,
     string InitiatorFullName,
     string? CurrentApproverFullName,
+    string? AssignedExecutorFullName,
     decimal EstimatedAmount,
     DateTimeOffset CreatedAt,
     bool CanDelete);

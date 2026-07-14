@@ -11,6 +11,8 @@ import {
 } from '@/api/inventory';
 import { toApiError } from '@/api/client';
 
+import SparePartNameField from '@/components/SparePartNameField.vue';
+
 const route = useRoute();
 const router = useRouter();
 const msg = useMessage();
@@ -61,11 +63,18 @@ const partColumns = computed<DataTableColumns<DefectActPartInput>>(() => [
   {
     title: 'Наименование',
     key: 'name',
-    render: (row, index) => h(NInput, {
-      value: row.name,
-      disabled: !editable.value,
-      onUpdateValue: (v: string) => { parts.value[index].name = v; }
-    })
+    minWidth: 320,
+    render: (row, index) => editable.value
+      ? h(SparePartNameField, {
+          modelValue: row.name,
+          catalogNumber: row.catalogNumber,
+          unit: row.unit,
+          vehicleName: vehicleName.value || null,
+          'onUpdate:modelValue': (v: string) => { parts.value[index].name = v; },
+          'onUpdate:catalogNumber': (v: string) => { parts.value[index].catalogNumber = v; },
+          'onUpdate:unit': (v: string) => { parts.value[index].unit = v; }
+        })
+      : row.name
   },
   {
     title: 'Кат. №',

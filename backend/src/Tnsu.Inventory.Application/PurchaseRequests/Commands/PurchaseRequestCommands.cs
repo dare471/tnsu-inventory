@@ -4,6 +4,7 @@ using Tnsu.Inventory.Application.Common.Exceptions;
 using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Application.DefectActs.Commands;
 using Tnsu.Inventory.Application.Workflow;
+using Tnsu.Inventory.Domain;
 using Tnsu.Inventory.Domain.Entities;
 using Tnsu.Inventory.Domain.Enums;
 
@@ -264,15 +265,20 @@ public sealed class DeleteDraftPurchaseRequestHandler(IInventoryDbContext db, IC
 
 public sealed record AssignExecutorCommand(Guid Id, AssignExecutorRequest Request) : IRequest<PurchaseRequestDto>;
 
-public sealed class AssignExecutorHandler(IInventoryDbContext db, ICurrentUser currentUser)
+public sealed class AssignExecutorHandler(
+    IInventoryDbContext db,
+    ICurrentUser currentUser,
+    INotificationService notifications)
     : IRequestHandler<AssignExecutorCommand, PurchaseRequestDto>
 {
     public async Task<PurchaseRequestDto> Handle(AssignExecutorCommand cmd, CancellationToken ct)
     {
-        if (currentUser.Role != MechanizationRole.OmtsHead)
-            throw new ForbiddenException("Назначать исполнителя может только руководитель ОМТС.");
+        if (!MechanizationRole.CanAssignExecutor(currentUser.Role))
+            throw new ForbiddenException("Назначать исполнителя может коммерческий директор (или руководитель ОМТС).");
 
-        var request = await db.PurchaseRequests.FirstOrDefaultAsync(r => r.Id == cmd.Id, ct)
+        var request = await db.PurchaseRequests
+            .Include(r => r.CreatedBy)
+            .FirstOrDefaultAsync(r => r.Id == cmd.Id, ct)
             ?? throw new NotFoundException("PurchaseRequest", cmd.Id);
 
         if (request.Status != WorkflowStatus.Approved)
@@ -282,13 +288,25 @@ public sealed class AssignExecutorHandler(IInventoryDbContext db, ICurrentUser c
             u => u.Id == cmd.Request.ExecutorUserId && u.IsActive, ct)
             ?? throw new NotFoundException("AppUser", cmd.Request.ExecutorUserId);
 
-        if (executor.Role != MechanizationRole.OmtsSpecialist)
-            throw new ValidationFailedException("Исполнителем может быть только специалист ОМТС.");
+        if (!MechanizationRole.IsExecutorRole(executor.Role))
+            throw new ValidationFailedException("Исполнителем может быть только пользователь с ролью «Исполнитель».");
 
         request.AssignedExecutorUserId = executor.Id;
         request.Status = WorkflowStatus.ExecutorAssigned;
         request.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        var notify = new WorkflowNotification(
+            DocumentTypes.PurchaseRequest,
+            request.Id,
+            request.Number,
+            executor.Email,
+            executor.FullName,
+            request.CreatedBy?.Email ?? "",
+            request.CreatedBy?.FullName ?? "—",
+            null,
+            $"/purchase-requests/{request.Id:D}");
+        await notifications.SendAssignedForApprovalAsync(notify, ct);
 
         return await PurchaseRequestMapper.ToDtoAsync(db, request.Id, currentUser, ct);
     }
@@ -329,8 +347,8 @@ public sealed class ClosePurchaseRequestHandler(IInventoryDbContext db, ICurrent
             ?? throw new NotFoundException("PurchaseRequest", cmd.Id);
 
         if (currentUser.UserId != request.AssignedExecutorUserId &&
-            currentUser.Role != MechanizationRole.OmtsHead)
-            throw new ForbiddenException("Закрыть заявку может исполнитель или руководитель ОМТС.");
+            !MechanizationRole.CanAssignExecutor(currentUser.Role))
+            throw new ForbiddenException("Закрыть заявку может исполнитель или коммерческий директор.");
 
         if (request.Status != WorkflowStatus.InProgress)
             throw new ConflictException("invalid_status", "Заявка должна быть в работе.");

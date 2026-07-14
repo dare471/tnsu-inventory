@@ -67,8 +67,18 @@ export const inventoryApi = {
     apiClient
       .get<SparePartDto[]>('/api/dictionaries/spare-parts', { params })
       .then((r) => r.data),
+  listExecutors: () =>
+    apiClient.get<AdminUserOptionDto[]>('/api/dictionaries/executors').then((r) => r.data),
   deleteDefectAct: (id: string) => apiClient.delete(`/api/defect-acts/${id}`),
   deletePurchaseRequest: (id: string) => apiClient.delete(`/api/purchase-requests/${id}`),
+  assignExecutor: (id: string, executorUserId: string) =>
+    apiClient
+      .post<PurchaseRequestDto>(`/api/purchase-requests/${id}/assign-executor`, { executorUserId })
+      .then((r) => r.data),
+  startPurchaseExecution: (id: string) =>
+    apiClient.post<PurchaseRequestDto>(`/api/purchase-requests/${id}/start`).then((r) => r.data),
+  closePurchaseRequest: (id: string) =>
+    apiClient.post<PurchaseRequestDto>(`/api/purchase-requests/${id}/close`).then((r) => r.data),
   listAttachments: (purchaseId: string) =>
     apiClient.get<AttachmentDto[]>(`/api/purchase-requests/${purchaseId}/attachments`).then((r) => r.data),
   uploadAttachment: async (purchaseId: string, file: File, category: string) => {
@@ -175,6 +185,7 @@ export interface PurchaseRequestListItem {
   id: string; number: string; status: string; statusLabel: string;
   projectName: string; vehicleName: string; initiatorFullName: string;
   currentApproverFullName?: string;
+  assignedExecutorFullName?: string;
   estimatedAmount: number; createdAt: string;
   canDelete?: boolean;
 }
@@ -187,6 +198,7 @@ export interface PurchaseRequestDto extends PurchaseRequestListItem {
   createdByFullName: string; assignedExecutorFullName?: string;
   lines: Array<{ id: string; lineNo: number; code: string; name: string; catalogNumber?: string; quantity: number; unit?: string; estimatedUnitPrice?: number; estimatedAmount?: number; notes?: string }>;
   canEdit: boolean; canSubmit: boolean; canCancel: boolean; canDelete: boolean;
+  canAssignExecutor?: boolean; canStartExecution?: boolean; canClose?: boolean;
 }
 export interface InboxItem {
   stepId: string; documentType: string; documentId: string;

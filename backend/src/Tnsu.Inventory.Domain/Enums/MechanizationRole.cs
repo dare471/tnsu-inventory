@@ -10,6 +10,8 @@ public static class MechanizationRole
     public const string ChiefMechanic = "chief_mechanic";
     public const string OmtsHead = "omts_head";
     public const string OmtsSpecialist = "omts_specialist";
+    public const string CommercialDirector = "commercial_director";
+    public const string Executor = "executor";
 
     public static readonly IReadOnlyList<string> CoordinationRoles =
     [
@@ -28,8 +30,24 @@ public static class MechanizationRole
         ChiefMechanic
     ];
 
+    /// <summary>Кто назначает исполнителя после утверждения заявки.</summary>
+    public static readonly IReadOnlySet<string> ExecutionAssignerRoles = new HashSet<string>
+    {
+        CommercialDirector,
+        OmtsHead
+    };
+
+    /// <summary>Кого можно назначить исполнителем заявки.</summary>
+    public static readonly IReadOnlySet<string> ExecutorRoles = new HashSet<string>
+    {
+        Executor,
+        OmtsSpecialist
+    };
+
     public static readonly IReadOnlyList<string> PostApprovalRoles =
     [
+        CommercialDirector,
+        Executor,
         OmtsHead,
         OmtsSpecialist
     ];
@@ -43,7 +61,9 @@ public static class MechanizationRole
         WarehouseCoordinator,
         ChiefMechanic,
         OmtsHead,
-        OmtsSpecialist
+        OmtsSpecialist,
+        CommercialDirector,
+        Executor
     };
 
     public static string Label(string role) => role switch
@@ -56,6 +76,14 @@ public static class MechanizationRole
         ChiefMechanic => "Главный механик",
         OmtsHead => "Руководитель ОМТС",
         OmtsSpecialist => "Специалист ОМТС",
+        CommercialDirector => "Коммерческий директор",
+        Executor => "Исполнитель",
         _ => role
     };
+
+    public static bool CanAssignExecutor(string? role) =>
+        role is not null && ExecutionAssignerRoles.Contains(role);
+
+    public static bool IsExecutorRole(string? role) =>
+        role is not null && ExecutorRoles.Contains(role);
 }

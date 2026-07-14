@@ -46,8 +46,8 @@ public sealed class CreateSupplierOrderHandler(
     public async Task<SupplierOrderDto> Handle(CreateSupplierOrderCommand cmd, CancellationToken ct)
     {
         var userId = currentUser.UserId ?? throw new UnauthorizedException();
-        if (currentUser.Role != MechanizationRole.OmtsSpecialist)
-            throw new ForbiddenException("Заказ поставщику формирует специалист ОМТС.");
+        if (!MechanizationRole.IsExecutorRole(currentUser.Role))
+            throw new ForbiddenException("Создать заказ поставщику может только исполнитель.");
 
         var request = await db.PurchaseRequests
             .Include(r => r.Lines)
@@ -58,7 +58,7 @@ public sealed class CreateSupplierOrderHandler(
             throw new ForbiddenException("Заказ может создать только назначенный исполнитель.");
 
         if (request.Status != WorkflowStatus.InProgress)
-            throw new ConflictException("invalid_status", "Заявка должна быть в работе ОМТС.");
+            throw new ConflictException("invalid_status", "Заявка должна быть в работе.");
 
         var existing = await db.SupplierOrders.FirstOrDefaultAsync(o => o.PurchaseRequestId == request.Id, ct);
         if (existing is not null)

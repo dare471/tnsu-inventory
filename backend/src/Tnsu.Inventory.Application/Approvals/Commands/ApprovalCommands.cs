@@ -22,7 +22,9 @@ public sealed class ApproveStepHandler(
     public async Task<Unit> Handle(ApproveStepCommand cmd, CancellationToken ct)
     {
         var (step, _) = await ApprovalStepLoader.LoadPendingStepAsync(db, cmd.StepId, currentUser, ct);
-        var actedByAdmin = currentUser.Role is MechanizationRole.ChiefMechanic or MechanizationRole.OmtsHead;
+        var actedByAdmin = currentUser.Role is MechanizationRole.ChiefMechanic
+            or MechanizationRole.OmtsHead
+            or MechanizationRole.CommercialDirector;
 
         var now = DateTimeOffset.UtcNow;
         step.Status = ApprovalStepStatus.Approved;
@@ -57,9 +59,45 @@ public sealed class ApproveStepHandler(
         {
             var approvedNotification = await WorkflowNotificationFactory.BuildInitiatorAsync(db, step, ct);
             await notifications.SendApprovedAsync(approvedNotification, ct);
+
+            if (step.PurchaseRequestId is Guid approvedPurchaseId)
+                await NotifyExecutionAssignersAsync(db, notifications, approvedPurchaseId, ct);
         }
 
         return Unit.Value;
+    }
+
+    private static async Task NotifyExecutionAssignersAsync(
+        IInventoryDbContext db,
+        INotificationService notifications,
+        Guid purchaseRequestId,
+        CancellationToken ct)
+    {
+        var directors = await db.Users.AsNoTracking()
+            .Where(u => u.IsActive && (
+                u.Role == MechanizationRole.CommercialDirector ||
+                u.Role == MechanizationRole.OmtsHead))
+            .ToListAsync(ct);
+        if (directors.Count == 0) return;
+
+        var request = await db.PurchaseRequests.AsNoTracking()
+            .Include(r => r.CreatedBy)
+            .FirstAsync(r => r.Id == purchaseRequestId, ct);
+
+        foreach (var director in directors)
+        {
+            var n = new WorkflowNotification(
+                DocumentTypes.PurchaseRequest,
+                request.Id,
+                request.Number,
+                director.Email,
+                director.FullName,
+                request.CreatedBy?.Email ?? "",
+                request.CreatedBy?.FullName ?? "—",
+                null,
+                $"/purchase-requests/{request.Id:D}");
+            await notifications.SendAwaitingExecutionAsync(n, ct);
+        }
     }
 
     private static async Task<string> UpdateDefectActStatusAsync(
@@ -102,7 +140,9 @@ public sealed class ReturnStepHandler(
             throw new ValidationFailedException("Комментарий обязателен при возврате на доработку.");
 
         var (step, _) = await ApprovalStepLoader.LoadPendingStepAsync(db, cmd.StepId, currentUser, ct);
-        var actedByAdmin = currentUser.Role is MechanizationRole.ChiefMechanic or MechanizationRole.OmtsHead;
+        var actedByAdmin = currentUser.Role is MechanizationRole.ChiefMechanic
+            or MechanizationRole.OmtsHead
+            or MechanizationRole.CommercialDirector;
         var now = DateTimeOffset.UtcNow;
 
         step.Status = ApprovalStepStatus.Returned;
@@ -148,7 +188,9 @@ public sealed class RejectStepHandler(
             throw new ValidationFailedException("Комментарий обязателен при отклонении.");
 
         var (step, _) = await ApprovalStepLoader.LoadPendingStepAsync(db, cmd.StepId, currentUser, ct);
-        var actedByAdmin = currentUser.Role is MechanizationRole.ChiefMechanic or MechanizationRole.OmtsHead;
+        var actedByAdmin = currentUser.Role is MechanizationRole.ChiefMechanic
+            or MechanizationRole.OmtsHead
+            or MechanizationRole.CommercialDirector;
         var now = DateTimeOffset.UtcNow;
 
         step.Status = ApprovalStepStatus.Rejected;
@@ -186,7 +228,9 @@ public sealed class GetApprovalInboxHandler(IInventoryDbContext db, ICurrentUser
     public async Task<IReadOnlyList<InboxItemDto>> Handle(GetApprovalInboxQuery q, CancellationToken ct)
     {
         var userId = currentUser.UserId ?? throw new UnauthorizedException();
-        var isAdmin = currentUser.Role is MechanizationRole.ChiefMechanic or MechanizationRole.OmtsHead;
+        var isAdmin = currentUser.Role is MechanizationRole.ChiefMechanic
+            or MechanizationRole.OmtsHead
+            or MechanizationRole.CommercialDirector;
 
         var stepsQuery = db.ApprovalSteps.AsNoTracking()
             .Include(s => s.DefectAct)
