@@ -4,7 +4,8 @@ import {
   NAutoComplete, NButton, NDataTable, NInput, NModal, NCard, NSpace,
   type DataTableColumns
 } from 'naive-ui';
-import { inventoryApi, type SparePartDto } from '@/api/inventory';
+import type { SparePartDto } from '@/api/inventory';
+import { searchSpareParts } from '@/api/spareParts';
 
 const props = defineProps<{
   modelValue: string;
@@ -39,12 +40,12 @@ const autoOptions = computed(() =>
 async function searchParts(query: string) {
   loading.value = true;
   try {
-    const items = await inventoryApi.searchSpareParts({
+    const items = await searchSpareParts({
       vehicleName: props.vehicleName || undefined,
       search: query || undefined
     });
     options.value = items.map((p) => ({
-      label: [p.name, p.groupName, p.unit].filter(Boolean).join(' · '),
+      label: [p.name, p.vehicleName, p.groupName, p.unit].filter(Boolean).join(' · '),
       value: p.name,
       part: p
     }));
@@ -87,7 +88,7 @@ async function openModal() {
 async function loadModal() {
   modalLoading.value = true;
   try {
-    modalRows.value = await inventoryApi.searchSpareParts({
+    modalRows.value = await searchSpareParts({
       vehicleName: props.vehicleName || undefined,
       search: modalSearch.value || undefined
     });
@@ -105,16 +106,16 @@ watch(modalSearch, () => {
 });
 
 const modalColumns: DataTableColumns<SparePartDto> = [
-  { title: 'Наименование ТМЦ', key: 'name', ellipsis: { tooltip: true } },
-  { title: 'Группа', key: 'groupName', width: 140, render: (r) => r.groupName || '—' },
-  { title: 'Ед.', key: 'unit', width: 70, render: (r) => r.unit || '—' },
   {
-    title: 'Норм. модель',
+    title: 'Нормализованная модель',
     key: 'vehicleName',
-    width: 200,
+    width: 240,
     ellipsis: { tooltip: true },
     render: (r) => r.vehicleName || '—'
   },
+  { title: 'Наименование техники', key: 'name', ellipsis: { tooltip: true } },
+  { title: 'Группа', key: 'groupName', width: 140, render: (r) => r.groupName || '—' },
+  { title: 'Ед. изм.', key: 'unit', width: 80, render: (r) => r.unit || '—' },
   {
     title: '',
     key: 'actions',

@@ -3,7 +3,7 @@
   "solution": {
     "name": "tnsu-inventory-mechanization-client-side-solution",
     "id": "6cb3b42c-1845-47a3-9511-c46b2c3d59ef",
-    "version": "0.4.11.0",
+    "version": "0.4.16.0",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,
@@ -30,7 +30,7 @@
         "title": "Механизация",
         "description": "Веб-части модуля механизации",
         "id": "9d1b4f1c-9b7f-4a27-b7db-3c2d33e39acf",
-        "version": "0.4.11.0"
+        "version": "0.4.16.0"
       }
     ]
   },

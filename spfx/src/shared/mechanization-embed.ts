@@ -1,3 +1,5 @@
+import type { SearchSparePartsFn } from './sparePartsCatalog';
+
 export type EmbedMode = 'lists' | 'defect-act-form' | 'purchase-request-form';
 
 export type EmbedOptions = {
@@ -12,7 +14,8 @@ type EmbedModule = {
   mountMechanizationEmbed: (
     el: string | HTMLElement,
     options: EmbedOptions,
-    getToken?: () => Promise<string | null>
+    getToken?: () => Promise<string | null>,
+    searchSpareParts?: SearchSparePartsFn
   ) => Promise<MountedApp>;
 };
 
@@ -28,10 +31,11 @@ async function loadEmbedModule(): Promise<EmbedModule> {
 export async function mountMechanizationEmbed(
   el: string | HTMLElement,
   options: EmbedOptions,
-  getToken?: () => Promise<string | null>
+  getToken?: () => Promise<string | null>,
+  searchSpareParts?: SearchSparePartsFn
 ): Promise<MountedApp> {
   const mod = await loadEmbedModule();
-  const app = await mod.mountMechanizationEmbed(el, options, getToken);
+  const app = await mod.mountMechanizationEmbed(el, options, getToken, searchSpareParts);
   return {
     unmount: () => app.unmount()
   };

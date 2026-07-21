@@ -1,6 +1,7 @@
 import { createApp, type App } from 'vue';
 import { createPinia } from 'pinia';
 import AppRoot from '@/App.vue';
+import type { SearchSparePartsFn } from '@/api/spareParts';
 import { createEmbedRouter } from './router';
 import { type EmbedOptions } from './options';
 import { readDocumentTypeFromUrl, resolveEmbedDocumentId } from './urlParams';
@@ -22,7 +23,8 @@ function injectEmbedStyles(): void {
 export async function mountMechanizationEmbed(
   el: string | HTMLElement,
   options: EmbedOptions,
-  getToken?: () => Promise<string | null>
+  getToken?: () => Promise<string | null>,
+  searchSpareParts?: SearchSparePartsFn
 ): Promise<MountedApp> {
   injectEmbedStyles();
 
@@ -41,6 +43,10 @@ export async function mountMechanizationEmbed(
 
   if (getToken) {
     window.__MECH_GET_TOKEN__ = getToken;
+  }
+
+  if (searchSpareParts) {
+    window.__MECH_SEARCH_SPARE_PARTS__ = searchSpareParts;
   }
 
   const router = createEmbedRouter();

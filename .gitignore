@@ -2,6 +2,7 @@ frontend/certs/
 
 .env
 .env.local
+.env.example
 *.user
 
 frontend/node_modules/

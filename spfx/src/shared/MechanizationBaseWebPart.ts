@@ -1,6 +1,7 @@
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 import type { WebPartContext } from '@microsoft/sp-webpart-base';
 import { mountMechanizationEmbed, type EmbedOptions } from './mechanization-embed';
+import { createSparePartsSearcher, type SearchSparePartsFn } from './sparePartsCatalog';
 
 export type MechanizationWebPartProps = {
   apiBaseUrl: string;
@@ -41,6 +42,7 @@ export abstract class MechanizationBaseWebPart<TProps extends MechanizationWebPa
   extends BaseClientSideWebPart<TProps> {
 
   protected getToken: (() => Promise<string | null>) | undefined;
+  private searchSpareParts: SearchSparePartsFn | undefined;
   private _app: Awaited<ReturnType<typeof mountMechanizationEmbed>> | undefined;
   private readonly onViewportResize = (): void => {
     this.applyContainerHeight();
@@ -62,6 +64,7 @@ export abstract class MechanizationBaseWebPart<TProps extends MechanizationWebPa
   protected async refreshRuntime(): Promise<void> {
     setSpfxRuntime(this.properties.apiBaseUrl);
     this.getToken = await createSpfxTokenGetter(this.context, this.properties.apiAudience);
+    this.searchSpareParts = createSparePartsSearcher(this.context);
   }
 
   public async render(): Promise<void> {
@@ -91,7 +94,8 @@ export abstract class MechanizationBaseWebPart<TProps extends MechanizationWebPa
       this._app = await mountMechanizationEmbed(
         root,
         this.getEmbedOptions(),
-        this.getToken
+        this.getToken,
+        this.searchSpareParts
       );
       console.info('[Mechanization] mounted');
       requestAnimationFrame(() => this.applyContainerHeight());

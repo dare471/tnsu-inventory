@@ -16,13 +16,13 @@ public sealed class SharePointSparePartsCatalog(
 {
     private static readonly ConcurrentDictionary<string, (DateTimeOffset Expires, object Value)> Cache = new();
     private static readonly string[] NameHints =
-        ["наименование тмц", "наименование", "тмц", "название", "запчаст", "материал", "номенклатур", "name", "title"];
+        ["наименование техники", "наименование тмц", "наименование", "тмц", "название", "запчаст", "материал", "номенклатур", "name", "title"];
     private static readonly string[] CatalogHints =
         ["каталог", "кат. №", "кат №", "артикул", "catalog", "part number", "partnumber"];
     private static readonly string[] CodeHints = ["код", "code", "номер позиции"];
     private static readonly string[] UnitHints = ["ед. изм", "ед изм", "единиц", "unit", "uom"];
     private static readonly string[] VehicleHints =
-        ["нормализованн", "модель", "техник", "основн", "средств", "машин", "vehicle", "equipment"];
+        ["нормализованная модель", "нормализованн", "основн средств", "vehicle", "equipment"];
     private static readonly string[] GroupHints = ["группа", "group", "категор"];
 
     public async Task<IReadOnlyList<SparePartDto>> SearchAsync(
@@ -143,31 +143,51 @@ public sealed class SharePointSparePartsCatalog(
             var json = await res.Content.ReadFromJsonAsync<ColumnCollection>(ct);
             var cols = json?.Value ?? [];
 
+            var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             string? Pick(string? configured, string[] hints, string? fallback = null)
             {
                 if (!string.IsNullOrWhiteSpace(configured))
+                {
+                    used.Add(configured);
                     return configured;
-                // Сначала по приоритету подсказок (иначе Title часто перебивает «Наименование ТМЦ»).
+                }
+
                 foreach (var hint in hints)
                 {
                     foreach (var col in cols)
                     {
                         var display = col.DisplayName ?? "";
                         var name = col.Name ?? "";
+                        if (string.IsNullOrWhiteSpace(name) || used.Contains(name))
+                            continue;
                         if (display.Contains(hint, StringComparison.OrdinalIgnoreCase) ||
                             name.Contains(hint, StringComparison.OrdinalIgnoreCase))
+                        {
+                            used.Add(name);
                             return name;
+                        }
                     }
                 }
-                return fallback;
+
+                if (!string.IsNullOrWhiteSpace(fallback) && !used.Contains(fallback))
+                {
+                    used.Add(fallback);
+                    return fallback;
+                }
+
+                return null;
             }
 
+            // Part name first («Наименование техники»), then model («Нормализованная модель»).
+            var nameField = Pick(cfg.SparePartsNameField, NameHints, "Title") ?? "Title";
+            var vehicleField = Pick(cfg.SparePartsVehicleField, VehicleHints);
             var mapping = new FieldMapping(
-                Pick(cfg.SparePartsNameField, NameHints, "Title") ?? "Title",
+                nameField,
                 Pick(cfg.SparePartsCatalogNumberField, CatalogHints),
                 Pick(cfg.SparePartsCodeField, CodeHints),
                 Pick(cfg.SparePartsUnitField, UnitHints),
-                Pick(cfg.SparePartsVehicleField, VehicleHints),
+                vehicleField,
                 Pick(cfg.SparePartsGroupField, GroupHints));
 
             logger.LogInformation(

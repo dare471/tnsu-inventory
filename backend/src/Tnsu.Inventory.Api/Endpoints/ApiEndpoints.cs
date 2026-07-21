@@ -483,8 +483,6 @@ public static class ApiEndpoints
             return Results.NoContent();
         });
 
-        });
-
         admin.MapGet("/documents", async (
             ICurrentUser current,
             InventoryDbContext db,
