@@ -51,6 +51,8 @@ public static class PurchaseRequestPrintService
         AppendRow(sb, "Гос. номер", Escape(request.StateNumber));
         AppendRow(sb, "VIN", string.IsNullOrWhiteSpace(request.VinCode) ? "—" : Escape(request.VinCode));
         AppendRow(sb, "Год выпуска", request.VehicleYear?.ToString() ?? "—");
+        AppendRow(sb, "Тип ремонта", Escape(RepairType.Label(request.RepairType)));
+        AppendRow(sb, "Дата поставки", request.DeliveryDate?.ToString("dd.MM.yyyy") ?? "—");
         if (request.DefectAct is not null)
             AppendRow(sb, "Дефектный акт", Escape(request.DefectAct.Number));
         AppendRow(sb, "Инициатор", Escape(request.CreatedBy?.FullName ?? "—"));

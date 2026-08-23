@@ -15,7 +15,9 @@ public class PurchaseRequest
     public string StateNumber { get; set; } = string.Empty;
     public string VinCode { get; set; } = string.Empty;
     public int? VehicleYear { get; set; }
+    public string RepairType { get; set; } = Enums.RepairType.Planned;
     public string Description { get; set; } = string.Empty;
+    public DateOnly? DeliveryDate { get; set; }
     public decimal EstimatedAmount { get; set; }
     public bool HasServiceNoteAttachment { get; set; }
     public string Status { get; set; } = Enums.WorkflowStatus.Draft;

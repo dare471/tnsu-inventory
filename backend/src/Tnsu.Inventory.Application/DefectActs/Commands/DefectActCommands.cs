@@ -36,6 +36,7 @@ public sealed class CreateDefectActHandler(IInventoryDbContext db, ICurrentUser 
             StateNumber = req.StateNumber.Trim(),
             VinCode = req.VinCode.Trim(),
             VehicleYear = req.VehicleYear,
+            RepairType = RepairType.Normalize(req.RepairType),
             MalfunctionDescription = req.MalfunctionDescription.Trim()
         };
 
@@ -78,6 +79,7 @@ public sealed class UpdateDefectActHandler(IInventoryDbContext db, ICurrentUser 
 
         EnsureEditable(act, currentUser);
 
+        act.RepairType = RepairType.Normalize(cmd.Request.RepairType);
         act.MalfunctionDescription = cmd.Request.MalfunctionDescription.Trim();
         act.UpdatedAt = DateTimeOffset.UtcNow;
 

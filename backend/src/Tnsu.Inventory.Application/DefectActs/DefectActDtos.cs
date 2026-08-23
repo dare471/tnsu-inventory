@@ -18,10 +18,12 @@ public sealed record CreateDefectActRequest(
     string StateNumber,
     string VinCode,
     int? VehicleYear,
+    string RepairType,
     string MalfunctionDescription,
     IReadOnlyList<DefectActPartInput> Parts);
 
 public sealed record UpdateDefectActRequest(
+    string RepairType,
     string MalfunctionDescription,
     IReadOnlyList<DefectActPartInput> Parts);
 
@@ -48,6 +50,8 @@ public sealed record DefectActDto(
     string StateNumber,
     string VinCode,
     int? VehicleYear,
+    string RepairType,
+    string RepairTypeLabel,
     string MalfunctionDescription,
     string CreatedByFullName,
     DateTimeOffset CreatedAt,

@@ -2,7 +2,7 @@
 import { computed, h, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
-  NCard, NButton, NAlert, NSpace, NDataTable, NTag, NUpload, NInput, NFormItem, NModal, NInputNumber, NSelect, useMessage,
+  NCard, NButton, NAlert, NSpace, NDataTable, NTag, NUpload, NInput, NFormItem, NModal, NInputNumber, NSelect, NDatePicker, NRadioGroup, NRadio, useMessage,
   type DataTableColumns, type UploadFileInfo
 } from 'naive-ui';
 import {
@@ -39,7 +39,34 @@ const decisionComment = ref('');
 const decisionSubmitting = ref(false);
 const currentApprovalStepId = ref<string | null>(null);
 const description = ref('');
+const repairType = ref('planned');
+const deliveryDate = ref<number | null>(null);
 const lines = ref<PurchaseRequestLineInput[]>([]);
+const repairTypeOptions = [
+  { label: 'Плановый ремонт', value: 'planned' },
+  { label: 'Аварийный ремонт', value: 'emergency' }
+];
+
+function parseDateOnly(value?: string | null): number | null {
+  if (!value) return null;
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d).getTime();
+}
+
+function formatDateOnly(ts: number | null): string | undefined {
+  if (ts == null) return undefined;
+  const d = new Date(ts);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatDateOnlyDisplay(value?: string | null): string {
+  if (!value) return '—';
+  const [y, m, d] = value.split('-');
+  return `${d}.${m}.${y}`;
+}
 const actingRoleLabel = computed(() => inboxItem.value?.approverRoleLabel ?? '—');
 const editable = computed(() => !!request.value?.canEdit);
 
@@ -157,6 +184,8 @@ onMounted(load);
 function bindRequest(dto: PurchaseRequestDto) {
   request.value = dto;
   description.value = dto.description;
+  repairType.value = dto.repairType || 'planned';
+  deliveryDate.value = parseDateOnly(dto.deliveryDate);
   lines.value = dto.lines.map((l) => ({
     lineNo: l.lineNo,
     code: l.code,
@@ -215,7 +244,9 @@ async function save() {
   error.value = '';
   try {
     bindRequest(await inventoryApi.updatePurchaseRequest(request.value.id, {
+      repairType: repairType.value,
       description: description.value.trim(),
+      deliveryDate: formatDateOnly(deliveryDate.value),
       lines: lines.value.filter((l) => l.name.trim())
     }));
     message.value = 'Изменения сохранены';
@@ -419,6 +450,21 @@ async function closeRequest() {
         </div>
         <div><strong>Инициатор:</strong> {{ request.createdByFullName }}</div>
         <div><strong>Исполнитель:</strong> {{ request.assignedExecutorFullName || '—' }}</div>
+        <div v-if="!editable"><strong>Тип ремонта:</strong> {{ request.repairTypeLabel || '—' }}</div>
+        <div v-if="!editable"><strong>Дата поставки:</strong> {{ formatDateOnlyDisplay(request.deliveryDate) }}</div>
+      </div>
+
+      <div v-if="editable" class="t-grid-2">
+        <NFormItem label="Тип ремонта">
+          <NRadioGroup v-model:value="repairType">
+            <NSpace>
+              <NRadio v-for="opt in repairTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</NRadio>
+            </NSpace>
+          </NRadioGroup>
+        </NFormItem>
+        <NFormItem label="Дата поставки">
+          <NDatePicker v-model:value="deliveryDate" type="date" style="width:100%" />
+        </NFormItem>
       </div>
 
       <div v-if="request.canAssignExecutor" class="t-assign-executor">

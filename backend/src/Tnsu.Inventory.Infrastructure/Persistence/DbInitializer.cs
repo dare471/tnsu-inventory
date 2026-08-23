@@ -87,6 +87,31 @@ public static class DbInitializer
             WHERE l."PurchaseRequestId" = r."Id"
               AND l."Code" = '';
             """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE defect_acts
+            ADD COLUMN IF NOT EXISTS "RepairType" character varying(32) NOT NULL DEFAULT 'planned';
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE purchase_requests
+            ADD COLUMN IF NOT EXISTS "RepairType" character varying(32) NOT NULL DEFAULT 'planned';
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE purchase_requests
+            ADD COLUMN IF NOT EXISTS "DeliveryDate" date NULL;
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE purchase_requests
+            SET "DeliveryDate" = ("CreatedAt" AT TIME ZONE 'UTC')::date + INTERVAL '30 days'
+            WHERE "DeliveryDate" IS NULL;
+            """, ct);
     }
 
     private static async Task EnsureEntraUsersAsync(InventoryDbContext db, CancellationToken ct)

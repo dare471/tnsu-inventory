@@ -3,7 +3,7 @@ import { computed, h, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   NCard, NForm, NFormItem, NSelect, NInput, NInputNumber, NButton, NAlert, NSpace,
-  NDataTable, NTag, NUpload, NModal, useMessage, type UploadFileInfo, type DataTableColumns
+  NDataTable, NTag, NUpload, NModal, NRadioGroup, NRadio, useMessage, type UploadFileInfo, type DataTableColumns
 } from 'naive-ui';
 import {
   inventoryApi, type ApprovalStepDto, type DefectActDto, type DefectActPartInput,
@@ -44,7 +44,12 @@ const vehicleGroupName = ref('');
 const stateNumber = ref('');
 const vinCode = ref('');
 const vehicleYear = ref<number | null>(null);
+const repairType = ref('planned');
 const malfunctionDescription = ref('');
+const repairTypeOptions = [
+  { label: 'Плановый ремонт', value: 'planned' },
+  { label: 'Аварийный ремонт', value: 'emergency' }
+];
 const parts = ref<DefectActPartInput[]>([{ lineNo: 1, name: '', quantity: 1, unit: 'шт' }]);
 
 const editable = computed(() => isNew.value || !!act.value?.canEdit);
@@ -173,6 +178,7 @@ async function loadAct(actId: string) {
   stateNumber.value = act.value.stateNumber;
   vinCode.value = act.value.vinCode;
   vehicleYear.value = act.value.vehicleYear ?? null;
+  repairType.value = act.value.repairType || 'planned';
   malfunctionDescription.value = act.value.malfunctionDescription;
   parts.value = act.value.parts.map((p) => ({
     lineNo: p.lineNo, name: p.name, catalogNumber: p.catalogNumber,
@@ -245,6 +251,7 @@ async function save() {
         vehicleId: vehicleId.value, vehicleName: vehicleName.value, vehicleGroupName: vehicleGroupName.value,
         stateNumber: stateNumber.value, vinCode: vinCode.value,
         vehicleYear: vehicleYear.value ?? undefined,
+        repairType: repairType.value,
         malfunctionDescription: malfunctionDescription.value, parts: parts.value
       });
       router.replace({ name: 'defect-act-detail', params: { id: dto.id } });
@@ -252,6 +259,7 @@ async function save() {
       message.value = 'Черновик сохранён';
     } else if (id.value) {
       act.value = await inventoryApi.updateDefectAct(id.value, {
+        repairType: repairType.value,
         malfunctionDescription: malfunctionDescription.value, parts: parts.value
       });
       message.value = 'Изменения сохранены';
@@ -380,6 +388,14 @@ async function deleteDraft() {
           <NInput v-model:value="vehicleGroupName" readonly />
         </NFormItem>
       </div>
+
+      <NFormItem label="Тип ремонта">
+        <NRadioGroup v-model:value="repairType" :disabled="!editable">
+          <NSpace>
+            <NRadio v-for="opt in repairTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</NRadio>
+          </NSpace>
+        </NRadioGroup>
+      </NFormItem>
 
       <NFormItem label="Описание неисправности">
         <NInput v-model:value="malfunctionDescription" type="textarea" :rows="4" :disabled="!editable" />

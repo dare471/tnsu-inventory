@@ -3,7 +3,7 @@ import { computed, h, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   NCard, NFormItem, NSelect, NInput, NInputNumber, NButton, NAlert, NSpace,
-  NDataTable, type DataTableColumns
+  NDataTable, NDatePicker, NRadioGroup, NRadio, type DataTableColumns
 } from 'naive-ui';
 import {
   inventoryApi, type ProjectDto, type VehicleDto, type PurchaseRequestLineInput
@@ -29,7 +29,29 @@ const vehicleGroupName = ref('');
 const stateNumber = ref('');
 const vinCode = ref('');
 const vehicleYear = ref<number | null>(null);
+const repairType = ref('planned');
 const description = ref('');
+const deliveryDate = ref<number | null>(null);
+const repairTypeOptions = [
+  { label: 'Плановый ремонт', value: 'planned' },
+  { label: 'Аварийный ремонт', value: 'emergency' }
+];
+
+function defaultDeliveryTimestamp() {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function formatDateOnly(ts: number | null): string | undefined {
+  if (ts == null) return undefined;
+  const d = new Date(ts);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 const lines = ref<PurchaseRequestLineInput[]>([{ lineNo: 1, name: '', quantity: 1, unit: 'шт' }]);
 
 const projectOptions = computed(() =>
@@ -106,6 +128,7 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+  deliveryDate.value = defaultDeliveryTimestamp();
 });
 
 function onProjectChange(v: string) {
@@ -161,7 +184,9 @@ async function save() {
       stateNumber: stateNumber.value,
       vinCode: vinCode.value,
       vehicleYear: vehicleYear.value ?? undefined,
+      repairType: repairType.value,
       description: description.value.trim(),
+      deliveryDate: formatDateOnly(deliveryDate.value),
       lines: lines.value.filter((l) => l.name.trim())
     });
     message.value = 'Черновик заявки сохранён';
@@ -214,6 +239,18 @@ async function save() {
           <NInput v-model:value="vehicleGroupName" readonly />
         </NFormItem>
       </div>
+
+      <NFormItem label="Тип ремонта">
+        <NRadioGroup v-model:value="repairType">
+          <NSpace>
+            <NRadio v-for="opt in repairTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</NRadio>
+          </NSpace>
+        </NRadioGroup>
+      </NFormItem>
+
+      <NFormItem label="Дата поставки">
+        <NDatePicker v-model:value="deliveryDate" type="date" style="width:100%" />
+      </NFormItem>
 
       <NFormItem label="Описание / обоснование">
         <NInput v-model:value="description" type="textarea" :rows="4" />

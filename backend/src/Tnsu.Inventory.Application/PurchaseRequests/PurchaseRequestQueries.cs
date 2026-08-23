@@ -53,12 +53,15 @@ internal static class PurchaseRequestMapper
             request.StateNumber,
             request.VinCode,
             request.VehicleYear,
+            request.RepairType,
+            RepairType.Label(request.RepairType),
             request.Description,
             request.EstimatedAmount,
             request.HasServiceNoteAttachment,
             request.CreatedBy?.FullName ?? "—",
             request.AssignedExecutor?.FullName,
             request.CreatedAt,
+            request.DeliveryDate,
             request.Lines.OrderBy(l => l.LineNo).Select(l => new PurchaseRequestLineDto(
                 l.Id, l.LineNo, l.Code, l.Name, l.CatalogNumber, l.Quantity, l.Unit,
                 l.EstimatedUnitPrice, l.EstimatedAmount, l.Notes)).ToList(),
@@ -124,6 +127,7 @@ public sealed class ListPurchaseRequestsHandler(IInventoryDbContext db, ICurrent
                 InitiatorFullName = r.CreatedBy!.FullName,
                 AssignedExecutorFullName = r.AssignedExecutor != null ? r.AssignedExecutor.FullName : null,
                 r.EstimatedAmount,
+                r.DeliveryDate,
                 r.CreatedAt,
                 r.CreatedByUserId
             })
@@ -152,6 +156,7 @@ public sealed class ListPurchaseRequestsHandler(IInventoryDbContext db, ICurrent
             pendingByRequest.GetValueOrDefault(r.Id),
             r.AssignedExecutorFullName,
             r.EstimatedAmount,
+            r.DeliveryDate,
             r.CreatedAt,
             r.Status == WorkflowStatus.Draft && currentUser.UserId == r.CreatedByUserId)).ToList();
     }

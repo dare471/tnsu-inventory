@@ -151,10 +151,10 @@ export interface CreateDefectActRequest {
   projectId: string; projectCode: string; projectName: string;
   vehicleId: string; vehicleName: string; vehicleGroupName: string;
   stateNumber: string; vinCode: string; vehicleYear?: number;
-  malfunctionDescription: string; parts: DefectActPartInput[];
+  repairType: string; malfunctionDescription: string; parts: DefectActPartInput[];
 }
 export interface UpdateDefectActRequest {
-  malfunctionDescription: string; parts: DefectActPartInput[];
+  repairType: string; malfunctionDescription: string; parts: DefectActPartInput[];
 }
 export interface DefectActListItem {
   id: string; number: string; status: string; statusLabel: string;
@@ -164,6 +164,7 @@ export interface DefectActListItem {
 export interface DefectActDto extends DefectActListItem {
   projectId: string; projectCode: string; vehicleId: string;
   vehicleGroupName: string; vinCode: string; vehicleYear?: number;
+  repairType: string; repairTypeLabel: string;
   malfunctionDescription: string; createdByFullName: string; signedAt?: string;
   parts: Array<{ id: string; lineNo: number; name: string; catalogNumber?: string; quantity: number; unit?: string; notes?: string }>;
   canEdit: boolean; canSubmit: boolean; canCreatePurchaseRequest: boolean; canDelete: boolean;
@@ -176,17 +177,18 @@ export interface CreatePurchaseRequestRequest {
   defectActId?: string; projectId: string; projectCode: string; projectName: string;
   vehicleId: string; vehicleName: string; vehicleGroupName: string;
   stateNumber: string; vinCode: string;
-  vehicleYear?: number; description: string; lines: PurchaseRequestLineInput[];
+  vehicleYear?: number; repairType: string; description: string;
+  deliveryDate?: string; lines: PurchaseRequestLineInput[];
 }
 export interface UpdatePurchaseRequestRequest {
-  description: string; lines: PurchaseRequestLineInput[];
+  repairType: string; description: string; deliveryDate?: string; lines: PurchaseRequestLineInput[];
 }
 export interface PurchaseRequestListItem {
   id: string; number: string; status: string; statusLabel: string;
   projectName: string; vehicleName: string; initiatorFullName: string;
   currentApproverFullName?: string;
   assignedExecutorFullName?: string;
-  estimatedAmount: number; createdAt: string;
+  estimatedAmount: number; deliveryDate?: string; createdAt: string;
   canDelete?: boolean;
 }
 export interface PurchaseRequestDto extends PurchaseRequestListItem {
@@ -194,6 +196,7 @@ export interface PurchaseRequestDto extends PurchaseRequestListItem {
   projectId: string; projectCode: string; vehicleId: string;
   vehicleGroupName: string;
   stateNumber: string; vinCode: string; vehicleYear?: number;
+  repairType: string; repairTypeLabel: string;
   description: string; hasServiceNoteAttachment: boolean;
   createdByFullName: string; assignedExecutorFullName?: string;
   lines: Array<{ id: string; lineNo: number; code: string; name: string; catalogNumber?: string; quantity: number; unit?: string; estimatedUnitPrice?: number; estimatedAmount?: number; notes?: string }>;

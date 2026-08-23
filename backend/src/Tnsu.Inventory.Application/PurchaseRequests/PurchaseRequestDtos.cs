@@ -20,11 +20,15 @@ public sealed record CreatePurchaseRequestRequest(
     string StateNumber,
     string VinCode,
     int? VehicleYear,
+    string RepairType,
     string Description,
+    DateOnly? DeliveryDate,
     IReadOnlyList<PurchaseRequestLineInput> Lines);
 
 public sealed record UpdatePurchaseRequestRequest(
+    string RepairType,
     string Description,
+    DateOnly? DeliveryDate,
     IReadOnlyList<PurchaseRequestLineInput> Lines);
 
 public sealed record PurchaseRequestLineDto(
@@ -55,12 +59,15 @@ public sealed record PurchaseRequestDto(
     string StateNumber,
     string VinCode,
     int? VehicleYear,
+    string RepairType,
+    string RepairTypeLabel,
     string Description,
     decimal EstimatedAmount,
     bool HasServiceNoteAttachment,
     string CreatedByFullName,
     string? AssignedExecutorFullName,
     DateTimeOffset CreatedAt,
+    DateOnly? DeliveryDate,
     IReadOnlyList<PurchaseRequestLineDto> Lines,
     bool CanEdit,
     bool CanSubmit,
@@ -81,6 +88,7 @@ public sealed record PurchaseRequestListItemDto(
     string? CurrentApproverFullName,
     string? AssignedExecutorFullName,
     decimal EstimatedAmount,
+    DateOnly? DeliveryDate,
     DateTimeOffset CreatedAt,
     bool CanDelete);
 

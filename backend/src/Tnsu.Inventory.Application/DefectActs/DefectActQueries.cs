@@ -46,6 +46,8 @@ internal static class DefectActMapper
             act.StateNumber,
             act.VinCode,
             act.VehicleYear,
+            act.RepairType,
+            RepairType.Label(act.RepairType),
             act.MalfunctionDescription,
             act.CreatedBy?.FullName ?? "—",
             act.CreatedAt,
@@ -153,7 +155,9 @@ public sealed class CreatePurchaseFromDefectActHandler(IInventoryDbContext db, I
                 act.StateNumber,
                 act.VinCode,
                 act.VehicleYear,
+                act.RepairType,
                 act.MalfunctionDescription,
+                null,
                 lines)), ct);
     }
 }

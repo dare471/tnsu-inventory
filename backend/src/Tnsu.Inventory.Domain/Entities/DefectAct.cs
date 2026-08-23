@@ -14,6 +14,7 @@ public class DefectAct
     public string StateNumber { get; set; } = string.Empty;
     public string VinCode { get; set; } = string.Empty;
     public int? VehicleYear { get; set; }
+    public string RepairType { get; set; } = Enums.RepairType.Planned;
     public string MalfunctionDescription { get; set; } = string.Empty;
     public string Status { get; set; } = Enums.WorkflowStatus.Draft;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

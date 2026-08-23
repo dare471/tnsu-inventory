@@ -49,6 +49,7 @@ public static class DefectActPrintService
         AppendRow(sb, "Гос. номер", Escape(act.StateNumber));
         AppendRow(sb, "VIN", string.IsNullOrWhiteSpace(act.VinCode) ? "—" : Escape(act.VinCode));
         AppendRow(sb, "Год выпуска", act.VehicleYear?.ToString() ?? "—");
+        AppendRow(sb, "Тип ремонта", Escape(RepairType.Label(act.RepairType)));
         AppendRow(sb, "Инициатор", Escape(act.CreatedBy?.FullName ?? "—"));
         AppendRow(sb, "Статус", Escape(WorkflowStatus.Label(act.Status)));
         sb.Append("</tbody></table>");

@@ -39,7 +39,9 @@ public sealed class CreatePurchaseRequestHandler(IInventoryDbContext db, ICurren
             StateNumber = req.StateNumber.Trim(),
             VinCode = req.VinCode.Trim(),
             VehicleYear = req.VehicleYear,
-            Description = req.Description.Trim()
+            RepairType = RepairType.Normalize(req.RepairType),
+            Description = req.Description.Trim(),
+            DeliveryDate = req.DeliveryDate ?? DefaultDeliveryDate()
         };
 
         request.Lines = req.Lines.Select(l => MapLine(number, request.Id, l)).ToList();
@@ -50,6 +52,9 @@ public sealed class CreatePurchaseRequestHandler(IInventoryDbContext db, ICurren
 
         return await PurchaseRequestMapper.ToDtoAsync(db, request.Id, currentUser, ct);
     }
+
+    private static DateOnly DefaultDeliveryDate() =>
+        DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30));
 
     private static async Task<string> NextNumberAsync(IInventoryDbContext db, CancellationToken ct)
     {
@@ -92,7 +97,9 @@ public sealed class UpdatePurchaseRequestHandler(IInventoryDbContext db, ICurren
 
         EnsureEditable(request, currentUser);
 
+        request.RepairType = RepairType.Normalize(cmd.Request.RepairType);
         request.Description = cmd.Request.Description.Trim();
+        request.DeliveryDate = cmd.Request.DeliveryDate ?? request.DeliveryDate ?? DefaultDeliveryDate();
         request.UpdatedAt = DateTimeOffset.UtcNow;
         db.PurchaseRequestLines.RemoveRange(request.Lines);
         request.Lines = cmd.Request.Lines.Select(l =>
