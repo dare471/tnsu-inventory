@@ -1,0 +1,3 @@
+/* Public styles entry: design tokens + base typography for @tnsu/ui-kit-vue consumers.
+   Component styles (Sidebar, Button, …) are emitted by Vite from *.vue SFCs. */
+@import './tokens/tokens.css';

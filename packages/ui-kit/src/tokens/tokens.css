@@ -1,0 +1,108 @@
+/* Tansu Construction — Design Tokens V5 (Executive Premium)
+   Ported from @tnsu/ui-kit tokens for Vue consumers.
+   Fonts: import @tnsu/ui-kit-vue fonts via fonts.css / bootstrap (self-hosted). */
+
+:root {
+  /* Navy */
+  --tnsu-navy-950: #0a1b30;
+  --tnsu-navy-900: #0f2440;
+  --tnsu-navy-800: #1b3a5c;
+  --tnsu-navy-700: #244b73;
+  --tnsu-navy-600: #2d5c8a;
+  --tnsu-navy-100: #e8eef4;
+  --tnsu-navy-50: #f4f7fa;
+
+  /* Gold */
+  --tnsu-gold-600: #b8881a;
+  --tnsu-gold-500: #d4a01e;
+  --tnsu-gold-400: #e5b635;
+  --tnsu-gold-300: #f0cc5e;
+  --tnsu-gold-100: #fdf5e0;
+  --tnsu-gold-50: #fefbf0;
+
+  /* Gray */
+  --tnsu-gray-900: #111827;
+  --tnsu-gray-700: #374151;
+  --tnsu-gray-500: #6b7280;
+  --tnsu-gray-400: #9ca3af;
+  --tnsu-gray-300: #d1d5db;
+  --tnsu-gray-200: #e5e7eb;
+  --tnsu-gray-100: #f3f4f6;
+  --tnsu-gray-50: #f9fafb;
+
+  /* Semantic */
+  --tnsu-red-500: #dc2626;
+  --tnsu-red-50: #fef2f2;
+  --tnsu-green-600: #15803d;
+  --tnsu-green-50: #f0fdf4;
+  --tnsu-blue-600: #2563eb;
+  --tnsu-blue-50: #eff6ff;
+  --tnsu-amber-700: #854d0e;
+  --tnsu-white: #fff;
+
+  /* Typography — Segoe UI / PT Serif fallbacks for Cyrillic on SharePoint & Windows */
+  --tnsu-font-serif: 'Lora', 'PT Serif', 'Georgia', 'Times New Roman', serif;
+  --tnsu-font-sans: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --tnsu-fs-page-title: 24px;
+  --tnsu-fs-form-title: 22px;
+  --tnsu-fs-section-title: 15px;
+  --tnsu-fs-body: 14px;
+  --tnsu-fs-sm: 13px;
+  --tnsu-fs-label: 12px;
+  --tnsu-fs-caption: 11px;
+
+  /* Radius / shadow / spacing */
+  --tnsu-r-sm: 6px;
+  --tnsu-r-md: 10px;
+  --tnsu-r-lg: 14px;
+  --tnsu-sh-1: 0 1px 2px rgba(15, 36, 64, 0.04), 0 1px 3px rgba(15, 36, 64, 0.06);
+  --tnsu-sh-2: 0 4px 16px rgba(15, 36, 64, 0.07);
+  --tnsu-sh-3: 0 12px 32px rgba(15, 36, 64, 0.1);
+  --tnsu-sh-gold: 0 4px 20px rgba(212, 160, 30, 0.18);
+  --tnsu-sp-1: 4px;
+  --tnsu-sp-2: 8px;
+  --tnsu-sp-3: 12px;
+  --tnsu-sp-4: 16px;
+  --tnsu-sp-5: 20px;
+  --tnsu-sp-6: 24px;
+  --tnsu-sp-8: 32px;
+
+  --tnsu-grad-header: linear-gradient(135deg, var(--tnsu-navy-950) 0%, var(--tnsu-navy-800) 85%);
+  --tnsu-grad-gold: linear-gradient(135deg, var(--tnsu-gold-400), var(--tnsu-gold-500));
+
+  /* App aliases (map legacy --brand-* used in ЛЗК) */
+  --brand-orange: var(--tnsu-gold-500);
+  --brand-orange-soft: var(--tnsu-gold-100);
+  --brand-navy: var(--tnsu-navy-900);
+  --brand-navy-dark: var(--tnsu-navy-950);
+  --brand-navy-hover: var(--tnsu-navy-700);
+  --brand-text: var(--tnsu-gray-900);
+  --brand-text-muted: var(--tnsu-gray-500);
+  --brand-border: var(--tnsu-gray-200);
+  --brand-bg: var(--tnsu-gray-100);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Base type: apply kit fonts to the whole app surface */
+html,
+body,
+#app,
+#mechanization-app,
+.mechanization-app-host,
+.mechanization-embed-root,
+.tansu-lzk-root {
+  font-family: var(--tnsu-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3,
+.tnsu-heading,
+.page-title {
+  font-family: var(--tnsu-font-serif);
+}

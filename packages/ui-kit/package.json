@@ -1,0 +1,38 @@
+{
+  "name": "@tnsu/ui-kit-vue",
+  "version": "0.1.0",
+  "description": "TNSU shared Vue UI components (design tokens aligned with @tnsu/ui-kit)",
+  "type": "module",
+  "main": "./dist/ui-kit-vue.umd.cjs",
+  "module": "./dist/ui-kit-vue.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/shim.d.ts",
+      "import": "./src/index.ts",
+      "require": "./dist/ui-kit-vue.umd.cjs"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.4",
+    "typescript": "~5.6.3",
+    "vite": "^5.4.10",
+    "vite-plugin-dts": "^4.3.0",
+    "vue": "^3.5.12"
+  }
+}

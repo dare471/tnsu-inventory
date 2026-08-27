@@ -6,6 +6,12 @@ declare module '*.vue' {
   export default component;
 }
 
+declare module '@tnsu/ui-kit-vue/styles.css';
+declare module '@tnsu/ui-kit-vue/styles.css?inline' {
+  const css: string;
+  export default css;
+}
+
 interface ImportMetaEnv {
   readonly VITE_API_BASE?: string;
   readonly VITE_API_BASE_URL?: string;

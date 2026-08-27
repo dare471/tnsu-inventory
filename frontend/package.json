@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^3.30.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/lora": "^5.3.0",
+    "@tnsu/ui-kit-vue": "file:../packages/ui-kit",
     "@vicons/ionicons5": "^0.12.0",
     "axios": "^1.7.7",
     "naive-ui": "^2.40.1",

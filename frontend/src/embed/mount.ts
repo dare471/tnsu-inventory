@@ -5,7 +5,8 @@ import type { SearchSparePartsFn } from '@/api/spareParts';
 import { createEmbedRouter } from './router';
 import { type EmbedOptions } from './options';
 import { readDocumentTypeFromUrl, resolveEmbedDocumentId } from './urlParams';
-import latoCss from 'vfonts/Lato.css?inline';
+import '@/styles/fonts.css';
+import uiKitCss from '@tnsu/ui-kit-vue/styles.css?inline';
 import appCss from '@/styles/app.css?inline';
 
 export type MountedApp = App<Element>;
@@ -16,7 +17,7 @@ function injectEmbedStyles(): void {
   if (document.getElementById(EMBED_STYLES_ID)) return;
   const style = document.createElement('style');
   style.id = EMBED_STYLES_ID;
-  style.textContent = `${latoCss}\n${appCss}`;
+  style.textContent = [uiKitCss, appCss].join('\n');
   document.head.appendChild(style);
 }
 

@@ -4,7 +4,9 @@ import App from './App.vue';
 import router from './router';
 import { appBrand } from './config/branding';
 import { initializeEntraAuth } from './auth/entraAuth';
-import 'vfonts/Lato.css';
+
+import '@tnsu/ui-kit-vue/styles.css';
+import '@/styles/fonts.css';
 import './styles/app.css';
 
 document.title = `${appBrand.brandName} — ${appBrand.moduleTitle}`;

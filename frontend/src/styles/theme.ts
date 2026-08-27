@@ -1,19 +1,20 @@
 import type { GlobalThemeOverrides } from 'naive-ui';
 
+/** Synced with @tnsu/ui-kit-vue tokens (navy/gold V5) */
 export const brand = {
-  orange: '#F4A627',
-  orangeDark: '#D99120',
-  orangeLight: '#FFF0D4',
-  navy: '#25275F',
-  navySoft: '#323568',
-  navyDark: '#1A1C48',
-  navyHover: '#323568',
-  navyLight: '#3A3D78',
-  text: '#1F2937',
-  textMuted: '#64748B',
-  border: '#E8EBF2',
-  bg: '#F4F5F8',
-  surfaceMuted: '#E8EBF2'
+  orange: '#D4A01E',
+  orangeDark: '#B8881A',
+  orangeLight: '#FDF5E0',
+  navy: '#0F2440',
+  navySoft: '#1B3A5C',
+  navyDark: '#0A1B30',
+  navyHover: '#244B73',
+  navyLight: '#2D5C8A',
+  text: '#111827',
+  textMuted: '#6B7280',
+  border: '#E5E7EB',
+  bg: '#F3F4F6',
+  surfaceMuted: '#E5E7EB'
 };
 
 export const themeOverrides: GlobalThemeOverrides = {
@@ -22,6 +23,8 @@ export const themeOverrides: GlobalThemeOverrides = {
     primaryColorHover: brand.orangeDark,
     primaryColorPressed: brand.orangeDark,
     primaryColorSuppl: brand.orangeDark,
+    fontFamily: "var(--tnsu-font-sans, 'Inter', -apple-system, 'Segoe UI', sans-serif)",
+    fontFamilyMono: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
     fontWeightStrong: '700',
     borderRadius: '8px',
     bodyColor: brand.bg

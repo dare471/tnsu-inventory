@@ -1,25 +1,17 @@
+/* Brand tokens come from @tnsu/ui-kit-vue/styles.css; keep RGB fallbacks for legacy CSS. */
 :root {
-  --brand-orange: #F4A627;
-  --brand-orange-dark: #D99120;
-  --brand-orange-soft: #FFF0D4;
-  --brand-orange-rgb: 244, 166, 39;
-  --brand-navy: #25275F;
-  --brand-navy-soft: #323568;
-  --brand-navy-dark: #1A1C48;
-  --brand-navy-light: #3A3D78;
-  --brand-navy-hover: #323568;
-  --brand-navy-rgb: 37, 39, 95;
-  --brand-text: #1F2937;
-  --brand-text-muted: #64748B;
-  --brand-border: #E8EBF2;
-  --brand-bg: #F4F5F8;
-  --brand-surface-muted: #E8EBF2;
+  --brand-orange-dark: var(--tnsu-gold-600, #b8881a);
+  --brand-orange-rgb: 212, 160, 30;
+  --brand-navy-soft: var(--tnsu-navy-800, #1b3a5c);
+  --brand-navy-light: var(--tnsu-navy-600, #2d5c8a);
+  --brand-navy-rgb: 15, 36, 64;
+  --brand-surface-muted: var(--tnsu-gray-200, #e5e7eb);
 }
 
 html, body, #app, #mechanization-app {
   height: 100%;
   margin: 0;
-  font-family: 'Lato', system-ui, -apple-system, sans-serif;
+  font-family: var(--tnsu-font-sans, 'Inter', system-ui, -apple-system, sans-serif);
   background: var(--brand-bg);
   color: var(--brand-text);
 }
@@ -53,10 +45,12 @@ html, body, #app, #mechanization-app {
   overflow: hidden;
 }
 
-.t-app-shell--embed .t-sidebar {
+.t-app-shell--embed .tnsu-sidebar,
+.t-app-shell--spfx-full .tnsu-sidebar {
   height: 100%;
   min-height: 0;
   align-self: stretch;
+  position: relative;
 }
 
 .t-app-shell--embed .t-app-main {
@@ -98,200 +92,6 @@ html, body, #app, #mechanization-app {
 
 a { color: var(--brand-orange); text-decoration: none; }
 a:hover { text-decoration: underline; }
-
-/* Sidebar */
-.t-sidebar {
-  width: 260px;
-  flex-shrink: 0;
-  min-width: 0;
-  background: var(--brand-navy);
-  color: rgba(255, 255, 255, 0.7);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  transition: width 0.2s ease;
-  overflow: hidden;
-  position: relative;
-  z-index: 2;
-}
-
-.t-sidebar--collapsed {
-  width: 72px;
-}
-
-.t-sidebar__brand {
-  padding: 22px 20px 18px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  min-width: 0;
-  flex-shrink: 0;
-}
-
-.t-sidebar__brand-text {
-  min-width: 0;
-  overflow: hidden;
-}
-
-.t-sidebar--collapsed .t-sidebar__brand {
-  padding: 22px 12px 18px;
-  justify-content: center;
-}
-
-.t-sidebar--collapsed .t-sidebar__brand-text,
-.t-sidebar--collapsed .t-sidebar__label,
-.t-sidebar--collapsed .t-sidebar__footer-text {
-  display: none;
-}
-.t-sidebar__logo {
-  width: 36px; height: 36px;
-  border-radius: 8px;
-  background: var(--brand-orange);
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-weight: 800; font-size: 18px;
-  letter-spacing: 0.5px;
-}
-.t-sidebar__title {
-  color: #fff; font-weight: 800; font-size: 16px;
-  line-height: 1.1;
-}
-.t-sidebar__subtitle {
-  color: rgba(255,255,255,0.5); font-size: 11px;
-  letter-spacing: 0.6px; text-transform: uppercase;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.t-sidebar__nav {
-  padding: 16px 10px;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-.t-sidebar--collapsed .t-sidebar__nav { padding: 16px 8px; }
-.t-sidebar__nav .n-tooltip {
-  display: block;
-  width: 100%;
-  min-width: 0;
-}
-.t-sidebar__item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  color: rgba(255,255,255,0.78);
-  cursor: pointer;
-  position: relative;
-  font-size: 13px;
-  line-height: 1.25;
-  margin-bottom: 4px;
-  transition: background 0.15s, color 0.15s;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-}
-.t-sidebar__label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  word-break: break-word;
-}
-.t-sidebar--collapsed .t-sidebar__item {
-  justify-content: center;
-  gap: 0;
-  padding: 11px;
-}
-.t-sidebar__item:hover {
-  background: var(--brand-navy-hover);
-  color: #fff;
-}
-.t-sidebar__item--active {
-  background: rgba(var(--brand-orange-rgb), 0.12);
-  color: var(--brand-orange);
-  font-weight: 600;
-}
-.t-sidebar__item--active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  background: var(--brand-orange);
-  border-radius: 0 3px 3px 0;
-}
-.t-sidebar--collapsed .t-sidebar__item--active::before {
-  left: 0;
-}
-.t-sidebar__item--disabled {
-  opacity: 0.42;
-  cursor: not-allowed;
-  user-select: none;
-}
-.t-sidebar__item--disabled:hover {
-  background: transparent;
-  color: rgba(255, 255, 255, 0.78);
-}
-.t-sidebar__icon {
-  width: 20px; height: 20px;
-  flex-shrink: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-}
-
-.t-sidebar__footer {
-  padding: 12px 16px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.t-sidebar--collapsed .t-sidebar__footer {
-  padding: 12px 8px 14px;
-  align-items: center;
-}
-
-.t-sidebar__toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 36px;
-  border: none;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.72);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.t-sidebar--collapsed .t-sidebar__toggle {
-  width: 36px;
-}
-
-.t-sidebar__toggle:hover {
-  background: var(--brand-navy-hover);
-  color: #fff;
-}
-
-.t-sidebar__footer-text {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 11px;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .t-app-shell {
   display: flex;

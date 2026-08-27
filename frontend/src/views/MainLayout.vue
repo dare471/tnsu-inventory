@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, h, onMounted, ref, watch, type Component } from 'vue';
+import { computed, h, markRaw, onMounted, ref, watch, type Component } from 'vue';
 import { useRouter, useRoute, RouterView } from 'vue-router';
-import { NIcon, NAvatar, NDropdown, NTooltip, NAlert, NButton, NSpace } from 'naive-ui';
+import { NIcon, NAvatar, NDropdown } from 'naive-ui';
+import { Alert, Button, Sidebar, type SidebarItem } from '@tnsu/ui-kit-vue';
 import {
   HomeOutline, DocumentTextOutline, CartOutline, MailUnreadOutline,
-  LogOutOutline, ChevronDownOutline, ChevronBackOutline, ChevronForwardOutline, SettingsOutline
+  LogOutOutline, ChevronDownOutline, SettingsOutline
 } from '@vicons/ionicons5';
 import { useAuthStore } from '@/stores/auth';
 import { appBrand } from '@/config/branding';
@@ -46,10 +47,6 @@ onMounted(async () => {
 watch(sidebarCollapsed, (value) => {
   localStorage.setItem(SIDEBAR_COLLAPSED_KEY, value ? '1' : '0');
 });
-
-function toggleSidebar() {
-  sidebarCollapsed.value = !sidebarCollapsed.value;
-}
 
 type NavItem = {
   name: string;
@@ -94,8 +91,20 @@ const renderedLabel = (item: NavItem) =>
     ? `${item.label} (${inboxCount.value})`
     : item.label;
 
+const sidebarItems = computed<SidebarItem[]>(() =>
+  items.value.map((item) => ({
+    id: item.name,
+    label: renderedLabel(item),
+    icon: markRaw(item.icon)
+  }))
+);
+
 function go(item: NavItem) {
   router.push({ name: item.name });
+}
+
+function onSidebarSelect(id: string) {
+  router.push({ name: id });
 }
 
 const userDropdown = computed(() =>
@@ -122,48 +131,22 @@ const userInitials = computed(() => {
     class="t-app-shell"
     :class="{ 't-app-shell--embed': spfxMode, 't-app-shell--spfx-full': showSidebar }"
   >
-    <aside v-if="showSidebar" class="t-sidebar" :class="{ 't-sidebar--collapsed': sidebarCollapsed }">
-      <nav class="t-sidebar__nav">
-        <template v-for="item in items" :key="item.name">
-          <NTooltip v-if="sidebarCollapsed" placement="right" :delay="200">
-            <template #trigger>
-              <div
-                class="t-sidebar__item"
-                :class="{ 't-sidebar__item--active': activeName === item.name }"
-                role="menuitem"
-                @click="go(item)"
-              >
-                <NIcon :component="item.icon" size="20" class="t-sidebar__icon" />
-                <span class="t-sidebar__label" :title="renderedLabel(item)">{{ renderedLabel(item) }}</span>
-              </div>
-            </template>
-            {{ renderedLabel(item) }}
-          </NTooltip>
-          <div
-            v-else
-            class="t-sidebar__item"
-            :class="{ 't-sidebar__item--active': activeName === item.name }"
-            role="menuitem"
-            @click="go(item)"
-          >
-            <NIcon :component="item.icon" size="20" class="t-sidebar__icon" />
-            <span class="t-sidebar__label" :title="renderedLabel(item)">{{ renderedLabel(item) }}</span>
-          </div>
-        </template>
-      </nav>
-
-      <div class="t-sidebar__footer">
-        <button
-          type="button"
-          class="t-sidebar__toggle"
-          :aria-label="sidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
-          @click="toggleSidebar"
-        >
-          <NIcon :component="sidebarCollapsed ? ChevronForwardOutline : ChevronBackOutline" size="18" />
-        </button>
-        <span class="t-sidebar__footer-text">© {{ appBrand.brandName }} — {{ new Date().getFullYear() }}</span>
-      </div>
-    </aside>
+    <Sidebar
+      v-if="showSidebar"
+      :items="sidebarItems"
+      :active-id="activeName"
+      :collapsed="sidebarCollapsed"
+      :brand-name="appBrand.brandName"
+      :product-name="appBrand.moduleTitle"
+      @select="onSidebarSelect"
+      @update:collapsed="sidebarCollapsed = $event"
+    >
+      <template #footer>
+        <div v-if="!sidebarCollapsed" class="t-shell-copy">
+          © {{ appBrand.brandName }} — {{ new Date().getFullYear() }}
+        </div>
+      </template>
+    </Sidebar>
 
     <div class="t-app-main">
       <header v-if="!spfxMode" class="t-topbar">
@@ -202,27 +185,19 @@ const userInitials = computed(() => {
 
       <main class="t-app-content">
         <div class="t-page-scroll">
-          <NAlert v-if="authError" type="error" style="margin-bottom:16px">{{ authError }}</NAlert>
+          <Alert v-if="authError" variant="danger" style="margin-bottom:16px">{{ authError }}</Alert>
 
-          <NSpace
-            v-if="showEmbedNav"
-            :size="8"
-            style="margin-bottom:16px"
-            wrap
-          >
-            <NButton
+          <div v-if="showEmbedNav" class="t-embed-nav">
+            <Button
               v-for="item in items"
               :key="item.name"
-              :type="activeName === item.name ? 'primary' : 'default'"
-              :secondary="activeName !== item.name"
+              :variant="activeName === item.name ? 'primary' : 'secondary'"
+              size="sm"
               @click="go(item)"
             >
-              <template #icon>
-                <NIcon :component="item.icon" />
-              </template>
               {{ renderedLabel(item) }}
-            </NButton>
-          </NSpace>
+            </Button>
+          </div>
 
           <RouterView />
         </div>
@@ -231,3 +206,16 @@ const userInitials = computed(() => {
   </div>
 </template>
 
+<style scoped>
+.t-shell-copy {
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+.t-embed-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+</style>

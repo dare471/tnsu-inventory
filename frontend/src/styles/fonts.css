@@ -1,0 +1,16 @@
+/* Self-hosted Cyrillic faces (processed by Vite → base64 in SPFx embed bundle). */
+@import '@fontsource/inter/cyrillic-400.css';
+@import '@fontsource/inter/cyrillic-500.css';
+@import '@fontsource/inter/cyrillic-600.css';
+@import '@fontsource/inter/cyrillic-700.css';
+@import '@fontsource/inter/cyrillic-ext-400.css';
+@import '@fontsource/inter/cyrillic-ext-500.css';
+@import '@fontsource/inter/cyrillic-ext-600.css';
+@import '@fontsource/inter/cyrillic-ext-700.css';
+@import '@fontsource/lora/cyrillic-400.css';
+@import '@fontsource/lora/cyrillic-500.css';
+@import '@fontsource/lora/cyrillic-600.css';
+@import '@fontsource/lora/cyrillic-700.css';
+@import '@fontsource/lora/cyrillic-ext-400.css';
+@import '@fontsource/lora/cyrillic-ext-600.css';
+@import '@fontsource/lora/cyrillic-ext-700.css';

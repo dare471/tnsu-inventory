@@ -3,6 +3,8 @@ import vue from '@vitejs/plugin-vue';
 import path from 'node:path';
 import fs from 'node:fs';
 
+const uiKitRoot = path.resolve(__dirname, '../packages/ui-kit');
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const keyPath = path.resolve(__dirname, 'certs/localhost-key.pem');
@@ -13,7 +15,17 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [vue()],
     resolve: {
-      alias: { '@': path.resolve(__dirname, 'src') }
+      alias: [
+        {
+          find: /@tnsu\/ui-kit-vue\/styles\.css/,
+          replacement: path.resolve(uiKitRoot, 'src/styles.css')
+        },
+        {
+          find: '@tnsu/ui-kit-vue',
+          replacement: path.resolve(uiKitRoot, 'src/index.ts')
+        },
+        { find: '@', replacement: path.resolve(__dirname, 'src') }
+      ]
     },
     base: '/',
     build: {
