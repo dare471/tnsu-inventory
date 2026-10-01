@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,20 @@ public static class ApiEndpoints
             Results.Ok(await m.Send(new ListWorkTypesQuery(), ct)));
         api.MapGet("/dictionaries/nomenclature", async ([FromQuery] string? search, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new ListNomenclatureQuery(search), ct)));
+        api.MapPost("/dictionaries/nomenclature/match", async ([FromBody] JsonElement body, IMediator m, CancellationToken ct) =>
+            Results.Json(await m.Send(new MatchNomenclatureQuery(body), ct)));
+        api.MapGet("/dictionaries/nomenclature/catalog", async (
+            [FromQuery] string? search,
+            [FromQuery] string? groupName,
+            [FromQuery] string? nomenclatureType,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
+            IMediator m,
+            CancellationToken ct) =>
+            Results.Json(await m.Send(new NomenclatureCatalogQuery(
+                search, groupName, nomenclatureType, page ?? 1, pageSize ?? 25), ct)));
+        api.MapGet("/dictionaries/nomenclature/filters", async (IMediator m, CancellationToken ct) =>
+            Results.Json(await m.Send(new NomenclatureFiltersQuery(), ct)));
         api.MapGet("/dictionaries/contractors", async ([FromQuery] string? search, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new ListContractorsQuery(search), ct)));
         api.MapGet("/dictionaries/spare-parts", async (

@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Tnsu.Inventory.Application.Common.Interfaces;
 
 public interface IInventoryDbContext
@@ -35,6 +37,10 @@ public interface IDictionary1CClient
     Task<IReadOnlyList<NomenclatureDto>> GetNomenclatureAsync(string? search, CancellationToken ct);
     Task<IReadOnlyList<ContractorDto>> GetContractorsAsync(string? search, CancellationToken ct);
     Task<IReadOnlyList<StockBalanceDto>> GetStockBalancesAsync(string? search, CancellationToken ct);
+    Task<JsonElement> MatchNomenclatureAsync(JsonElement body, CancellationToken ct);
+    Task<JsonElement> GetNomenclatureCatalogAsync(
+        string? search, string? groupName, string? nomenclatureType, int page, int pageSize, CancellationToken ct);
+    Task<JsonElement> GetNomenclatureFiltersAsync(CancellationToken ct);
 }
 
 public sealed record ProjectDto(Guid Id, string Code, string ProjectName);

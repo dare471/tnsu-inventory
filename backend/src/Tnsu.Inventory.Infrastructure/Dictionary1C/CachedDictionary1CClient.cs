@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Tnsu.Inventory.Application.Common.Interfaces;
 
@@ -46,6 +47,26 @@ public sealed class CachedDictionary1CClient(DictionaryDataCache cache) : IDicti
             $"1c:stock:{NormalizeKey(search)}",
             (sp, c) => sp.GetRequiredService<HttpDictionary1CClient>().GetStockBalancesAsync(search, c),
             ct);
+
+    public Task<JsonElement> MatchNomenclatureAsync(JsonElement body, CancellationToken ct) =>
+        ExecuteAsync((sp, c) => sp.GetRequiredService<HttpDictionary1CClient>().MatchNomenclatureAsync(body, c), ct);
+
+    public Task<JsonElement> GetNomenclatureCatalogAsync(
+        string? search, string? groupName, string? nomenclatureType, int page, int pageSize, CancellationToken ct) =>
+        ExecuteAsync(
+            (sp, c) => sp.GetRequiredService<HttpDictionary1CClient>()
+                .GetNomenclatureCatalogAsync(search, groupName, nomenclatureType, page, pageSize, c),
+            ct);
+
+    public Task<JsonElement> GetNomenclatureFiltersAsync(CancellationToken ct) =>
+        ExecuteAsync((sp, c) => sp.GetRequiredService<HttpDictionary1CClient>().GetNomenclatureFiltersAsync(c), ct);
+
+    private async Task<T> ExecuteAsync<T>(
+        Func<IServiceProvider, CancellationToken, Task<T>> factory, CancellationToken ct)
+    {
+        using var scope = cache.CreateScope();
+        return await factory(scope.ServiceProvider, ct);
+    }
 
     private static string NormalizeKey(string? search) =>
         (search ?? string.Empty).Trim().ToLowerInvariant();

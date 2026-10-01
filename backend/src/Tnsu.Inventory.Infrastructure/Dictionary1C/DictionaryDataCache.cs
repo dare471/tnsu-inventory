@@ -16,6 +16,8 @@ public sealed class DictionaryDataCache(
     private readonly ConcurrentDictionary<string, Entry> _entries = new();
     private readonly ConcurrentDictionary<string, byte> _refreshing = new();
 
+    public IServiceScope CreateScope() => scopeFactory.CreateScope();
+
     public async Task<IReadOnlyList<T>> GetOrLoadAsync<T>(
         string key,
         Func<IServiceProvider, CancellationToken, Task<IReadOnlyList<T>>> factory,

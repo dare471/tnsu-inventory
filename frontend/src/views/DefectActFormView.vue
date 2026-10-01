@@ -11,12 +11,16 @@ import {
 } from '@/api/inventory';
 import { openAttachment, toApiError } from '@/api/client';
 import { repairCategoryOptions, repairTypeOptions, unitOptions } from '@/config/units';
+import { STOCK_ROLES } from '@/config/roles';
+import { useAuthStore } from '@/stores/auth';
 
 import SparePartNameField from '@/components/SparePartNameField.vue';
+import WarehouseStockModal from '@/components/WarehouseStockModal.vue';
 
 const route = useRoute();
 const router = useRouter();
 const msg = useMessage();
+const auth = useAuthStore();
 const id = computed(() => route.params.id as string | undefined);
 const isNew = computed(() => route.name === 'defect-act-new');
 
@@ -34,6 +38,8 @@ const decisionModalOpen = ref(false);
 const decisionKind = ref<'approve' | 'return'>('approve');
 const decisionComment = ref('');
 const decisionSubmitting = ref(false);
+const stockOpen = ref(false);
+const canSearchWarehouse = computed(() => STOCK_ROLES.has(auth.user?.role ?? ''));
 const actingRoleLabel = computed(() => inboxItem.value?.approverRoleLabel ?? '—');
 
 const projectId = ref('');
@@ -460,7 +466,12 @@ async function deleteDraft() {
       </NFormItem>
 
       <div>
-        <h3 style="margin:0 0 12px">Запчасти / материалы</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px">
+          <h3 style="margin:0">Запчасти / материалы</h3>
+          <NButton v-if="canSearchWarehouse" secondary @click="stockOpen = true">
+            Проверить остатки на складах
+          </NButton>
+        </div>
         <div class="t-table-wrap">
           <NDataTable :columns="partColumns" :data="parts" size="small" :bordered="false" />
         </div>
@@ -540,6 +551,11 @@ async function deleteDraft() {
         </NSpace>
       </NCard>
     </NModal>
+    <WarehouseStockModal
+      v-model:show="stockOpen"
+      :lines="parts.filter((p) => p.name.trim())"
+      :can-create-transfer="canSearchWarehouse"
+    />
   </NCard>
 </template>
 

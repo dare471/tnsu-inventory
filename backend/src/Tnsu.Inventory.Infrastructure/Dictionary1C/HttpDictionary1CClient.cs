@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
@@ -130,6 +131,29 @@ public sealed class HttpDictionary1CClient(
             n.Id.ToString(), n.Code, n.Name, n.Unit, null, "Склад")).ToList();
     }
 
+    public Task<JsonElement> MatchNomenclatureAsync(JsonElement body, CancellationToken ct) =>
+        SendRawAsync(HttpMethod.Post, "/Dictionary/Nomenclature/match", body, ct);
+
+    public Task<JsonElement> GetNomenclatureCatalogAsync(
+        string? search, string? groupName, string? nomenclatureType, int page, int pageSize, CancellationToken ct)
+    {
+        var q = new List<string>
+        {
+            $"page={page}",
+            $"pageSize={pageSize}"
+        };
+        if (!string.IsNullOrWhiteSpace(search))
+            q.Add($"search={Uri.EscapeDataString(search)}");
+        if (!string.IsNullOrWhiteSpace(groupName))
+            q.Add($"groupName={Uri.EscapeDataString(groupName)}");
+        if (!string.IsNullOrWhiteSpace(nomenclatureType))
+            q.Add($"nomenclatureType={Uri.EscapeDataString(nomenclatureType)}");
+        return SendRawAsync(HttpMethod.Get, $"/Dictionary/Nomenclature?{string.Join('&', q)}", null, ct);
+    }
+
+    public Task<JsonElement> GetNomenclatureFiltersAsync(CancellationToken ct) =>
+        SendRawAsync(HttpMethod.Get, "/Dictionary/Nomenclature/filters", null, ct);
+
     public async Task<IReadOnlyList<ContractorDto>> GetContractorsAsync(string? search, CancellationToken ct)
     {
         var path = string.IsNullOrWhiteSpace(search)
@@ -139,6 +163,36 @@ public sealed class HttpDictionary1CClient(
         return rows.Select(r => new ContractorDto(
             Guid.TryParse(r.Id, out var id) ? id : Guid.NewGuid(),
             r.Code ?? "", r.Name ?? "", r.Inn)).ToList();
+    }
+
+    private async Task<JsonElement> SendRawAsync(HttpMethod method, string path, JsonElement? body, CancellationToken ct)
+    {
+        var baseUrl = options.Value.BaseUrl.TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            throw new InvalidOperationException("Не задан адрес справочника Dictionary API");
+
+        using var request = new HttpRequestMessage(method, $"{baseUrl}{path}");
+        var token = await tokenProvider.GetAccessTokenAsync(ct);
+        if (token is not null)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (body is JsonElement json)
+            request.Content = JsonContent.Create(json);
+
+        using var response = await http.SendAsync(request, ct);
+        var text = await response.Content.ReadAsStringAsync(ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.LogWarning("Dictionary API {Path} returned {Status}", path, response.StatusCode);
+            throw new InvalidOperationException(
+                string.IsNullOrWhiteSpace(text)
+                    ? $"Справочник складов вернул {(int)response.StatusCode}"
+                    : text);
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+            return JsonDocument.Parse("{}").RootElement.Clone();
+        using var doc = JsonDocument.Parse(text);
+        return doc.RootElement.Clone();
     }
 
     private async Task<List<T>> GetAsync<T>(string path, CancellationToken ct)

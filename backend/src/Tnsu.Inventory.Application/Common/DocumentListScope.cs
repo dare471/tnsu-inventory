@@ -11,5 +11,7 @@ internal static class DocumentListScope
             or MechanizationRole.OmtsHead;
 
     public static bool CanViewAllDefectActs(ICurrentUser user) =>
-        IsGlobalAdmin(user) || user.Role == MechanizationRole.Accountant;
+        IsGlobalAdmin(user)
+        || user.Role == MechanizationRole.Accountant
+        || MechanizationRole.CanSearchStock(user.Role);
 }
