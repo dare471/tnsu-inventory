@@ -167,9 +167,14 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
             e.HasKey(x => x.Id);
             e.Property(x => x.CatalogNumber).HasMaxLength(50);
             e.Property(x => x.Unit).HasMaxLength(32);
+            e.Property(x => x.Code).HasMaxLength(64);
+            e.Property(x => x.Name).HasMaxLength(512);
             e.Property(x => x.NomenclatureId).HasMaxLength(64);
+            e.Property(x => x.Quantity).HasPrecision(18, 3);
             e.Property(x => x.AvailableQuantity).HasPrecision(18, 3);
-            e.HasOne(x => x.TransferRequest).WithMany(x => x.Lines).HasForeignKey(x => x.TransferRequestId);
+            e.HasOne(x => x.TransferRequest).WithMany(x => x.Lines)
+                .HasForeignKey(x => x.TransferRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

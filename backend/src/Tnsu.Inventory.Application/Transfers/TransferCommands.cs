@@ -143,7 +143,7 @@ public sealed class CreateMaterialTransferHandler(IInventoryDbContext db, ICurre
         ListMaterialTransfersHandler.EnsureAccess(currentUser);
         var userId = currentUser.UserId ?? throw new UnauthorizedException();
         var req = cmd.Request;
-        if (req.Lines.Count == 0)
+        if (req.Lines is null || req.Lines.Count == 0)
             throw new ValidationFailedException("Добавьте хотя бы одну позицию.");
 
         string? defectActNumber = null;
@@ -166,34 +166,108 @@ public sealed class CreateMaterialTransferHandler(IInventoryDbContext db, ICurre
         {
             Number = $"MV-{year}-{(count + 1):D5}",
             CreatedByUserId = userId,
-            SourceWarehouse = req.SourceWarehouse.Trim(),
-            Destination = req.Destination.Trim(),
+            SourceWarehouse = TrimTo(req.SourceWarehouse, 256),
+            Destination = TrimTo(req.Destination, 256),
             Comment = string.IsNullOrWhiteSpace(req.Comment) ? null : req.Comment.Trim(),
             DefectActId = req.DefectActId,
             DefectActNumber = defectActNumber,
             PurchaseRequestId = req.PurchaseRequestId
         };
         request.Lines = req.Lines.Select(MapLine).ToList();
-        foreach (var line in request.Lines)
+        for (var i = 0; i < request.Lines.Count; i++)
+        {
+            var line = request.Lines.ElementAt(i);
             line.TransferRequestId = request.Id;
+            if (line.LineNo <= 0)
+                line.LineNo = i + 1;
+        }
 
         db.MaterialTransfers.Add(request);
         await db.SaveChangesAsync(ct);
         return await new GetMaterialTransferHandler(db, currentUser).Handle(new GetMaterialTransferQuery(request.Id), ct);
     }
 
-    internal static MaterialTransferLine MapLine(MaterialTransferLineInput line) => new()
+    internal static MaterialTransferLine MapLine(MaterialTransferLineInput line)
     {
-        LineNo = line.LineNo,
-        Code = line.Code.Trim(),
-        Name = line.Name.Trim(),
-        CatalogNumber = string.IsNullOrWhiteSpace(line.CatalogNumber) ? null : line.CatalogNumber.Trim(),
-        Quantity = line.Quantity,
-        Unit = MeasurementUnits.Normalize(string.IsNullOrWhiteSpace(line.Unit) ? "шт." : line.Unit),
-        AvailableQuantity = line.AvailableQuantity,
-        NomenclatureId = string.IsNullOrWhiteSpace(line.NomenclatureId) ? null : line.NomenclatureId.Trim(),
-        SourceDefectActPartId = line.SourceDefectActPartId
-    };
+        var name = (line.Name ?? "").Trim();
+        if (name.Length == 0)
+            throw new ValidationFailedException("Укажите наименование позиции.");
+        if (name.Length > 512)
+            throw new ValidationFailedException("Наименование позиции длиннее 512 символов.");
+
+        var code = (line.Code ?? "").Trim();
+        if (code.Length > 64)
+            code = code[..64];
+
+        var catalog = string.IsNullOrWhiteSpace(line.CatalogNumber) ? null : line.CatalogNumber.Trim();
+        if (catalog is { Length: > 50 })
+            catalog = catalog[..50];
+
+        var unit = MeasurementUnits.Normalize(line.Unit);
+        if (unit.Length > 32)
+            unit = unit[..32];
+
+        var nomenclatureId = string.IsNullOrWhiteSpace(line.NomenclatureId) ? null : line.NomenclatureId.Trim();
+        if (nomenclatureId is { Length: > 64 })
+            nomenclatureId = nomenclatureId[..64];
+
+        return new MaterialTransferLine
+        {
+            LineNo = line.LineNo,
+            Code = code,
+            Name = name,
+            CatalogNumber = catalog,
+            Quantity = decimal.Round(line.Quantity, 3, MidpointRounding.AwayFromZero),
+            Unit = unit,
+            AvailableQuantity = line.AvailableQuantity is null
+                ? null
+                : decimal.Round(line.AvailableQuantity.Value, 3, MidpointRounding.AwayFromZero),
+            NomenclatureId = nomenclatureId,
+            SourceDefectActPartId = line.SourceDefectActPartId
+        };
+    }
+
+    internal static string TrimTo(string? value, int max)
+    {
+        var text = (value ?? "").Trim();
+        return text.Length <= max ? text : text[..max];
+    }
+
+    internal static void ReplaceLines(
+        IInventoryDbContext db, MaterialTransferRequest request, IReadOnlyList<MaterialTransferLineInput>? lines)
+    {
+        if (lines is null || lines.Count == 0)
+            throw new ValidationFailedException("Добавьте хотя бы одну позицию.");
+
+        var incoming = lines.Select(MapLine).ToList();
+        var existing = request.Lines.OrderBy(l => l.LineNo).ThenBy(l => l.Id).ToList();
+        for (var i = 0; i < incoming.Count; i++)
+        {
+            var source = incoming[i];
+            if (i < existing.Count)
+            {
+                var target = existing[i];
+                target.LineNo = source.LineNo > 0 ? source.LineNo : i + 1;
+                target.Code = source.Code;
+                target.Name = source.Name;
+                target.CatalogNumber = source.CatalogNumber;
+                target.Quantity = source.Quantity;
+                target.Unit = source.Unit;
+                target.AvailableQuantity = source.AvailableQuantity;
+                target.NomenclatureId = source.NomenclatureId;
+                target.SourceDefectActPartId = source.SourceDefectActPartId;
+                continue;
+            }
+
+            source.TransferRequestId = request.Id;
+            if (source.LineNo <= 0)
+                source.LineNo = i + 1;
+            request.Lines.Add(source);
+        }
+
+        for (var i = incoming.Count; i < existing.Count; i++)
+            db.MaterialTransferLines.Remove(existing[i]);
+    }
 }
 
 public sealed record UpdateMaterialTransferCommand(Guid Id, UpdateMaterialTransferRequest Request) : IRequest<MaterialTransferDto>;
@@ -212,18 +286,11 @@ public sealed class UpdateMaterialTransferHandler(IInventoryDbContext db, ICurre
         if (request.Status != TransferStatus.Draft || currentUser.UserId != request.CreatedByUserId)
             throw new ForbiddenException("Редактировать можно только свой черновик.");
 
-        request.SourceWarehouse = cmd.Request.SourceWarehouse.Trim();
-        request.Destination = cmd.Request.Destination.Trim();
-        request.Comment = cmd.Request.Comment?.Trim();
+        request.SourceWarehouse = CreateMaterialTransferHandler.TrimTo(cmd.Request.SourceWarehouse, 256);
+        request.Destination = CreateMaterialTransferHandler.TrimTo(cmd.Request.Destination, 256);
+        request.Comment = string.IsNullOrWhiteSpace(cmd.Request.Comment) ? null : cmd.Request.Comment.Trim();
         request.UpdatedAt = DateTimeOffset.UtcNow;
-        foreach (var line in request.Lines.ToList())
-            db.MaterialTransferLines.Remove(line);
-        request.Lines.Clear();
-        foreach (var line in cmd.Request.Lines.Select(CreateMaterialTransferHandler.MapLine))
-        {
-            line.TransferRequestId = request.Id;
-            request.Lines.Add(line);
-        }
+        CreateMaterialTransferHandler.ReplaceLines(db, request, cmd.Request.Lines);
 
         await db.SaveChangesAsync(ct);
         return await new GetMaterialTransferHandler(db, currentUser).Handle(new GetMaterialTransferQuery(request.Id), ct);
