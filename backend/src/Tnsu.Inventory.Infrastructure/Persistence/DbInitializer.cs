@@ -188,6 +188,11 @@ public static class DbInitializer
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_material_transfers_Number"
             ON material_transfers ("Number");
+            ALTER TABLE material_transfers ADD COLUMN IF NOT EXISTS "DefectActId" uuid NULL;
+            ALTER TABLE material_transfers ADD COLUMN IF NOT EXISTS "DefectActNumber" character varying(32) NULL;
+            ALTER TABLE material_transfers ADD COLUMN IF NOT EXISTS "PurchaseRequestId" uuid NULL;
+            CREATE INDEX IF NOT EXISTS "IX_material_transfers_DefectActId"
+            ON material_transfers ("DefectActId");
             CREATE TABLE IF NOT EXISTS material_transfer_lines (
                 "Id" uuid PRIMARY KEY,
                 "TransferRequestId" uuid NOT NULL,
@@ -199,6 +204,8 @@ public static class DbInitializer
                 "Unit" character varying(32) NOT NULL DEFAULT 'шт.',
                 "AvailableQuantity" numeric(18,3) NULL
             );
+            ALTER TABLE material_transfer_lines ADD COLUMN IF NOT EXISTS "NomenclatureId" character varying(64) NULL;
+            ALTER TABLE material_transfer_lines ADD COLUMN IF NOT EXISTS "SourceDefectActPartId" uuid NULL;
             """, ct);
     }
 

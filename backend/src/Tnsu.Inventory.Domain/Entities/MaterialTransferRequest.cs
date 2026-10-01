@@ -9,6 +9,9 @@ public class MaterialTransferRequest
     public string SourceWarehouse { get; set; } = string.Empty;
     public string Destination { get; set; } = string.Empty;
     public string? Comment { get; set; }
+    public Guid? DefectActId { get; set; }
+    public string? DefectActNumber { get; set; }
+    public Guid? PurchaseRequestId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 

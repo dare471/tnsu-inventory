@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   NModal, NTabs, NTabPane, NInput, NSelect, NDataTable, NSpin, NPagination,
   type DataTableColumns
 } from 'naive-ui';
 import { Button, Badge, Alert } from '@tnsu/ui-kit-vue';
 import { toApiError } from '@/api/client';
+import { inventoryApi } from '@/api/inventory';
 import {
   getNomenclature,
   getNomenclatureFilters,
   isLineGuid,
   matchNomenclature,
-  openTmcTransferRequest,
   type NomenclatureItem,
   type StockMatchGroup,
   type StockMatchQuery
@@ -19,9 +20,15 @@ import {
 
 const props = defineProps<{
   show: boolean;
-  lines: Array<{ id?: string; name: string; catalogNumber?: string; unit?: string }>;
+  lines: Array<{ id?: string; name: string; catalogNumber?: string; unit?: string; quantity?: number }>;
   canCreateTransfer?: boolean;
+  defectActId?: string;
+  purchaseRequestId?: string;
+  destination?: string;
 }>();
+
+const router = useRouter();
+const creatingKey = ref('');
 
 const emit = defineEmits<{
   'update:show': [value: boolean];
@@ -80,9 +87,39 @@ function canTransferForGroup(queryId: string): boolean {
   return !!props.canCreateTransfer && isLineGuid(queryId);
 }
 
-function onTransfer(positionId: string, nomenclatureId: string, storeName?: string): void {
-  if (!isLineGuid(positionId) || !nomenclatureId) return;
-  openTmcTransferRequest(positionId, nomenclatureId, storeName);
+async function onTransfer(positionId: string, item: NomenclatureItem): Promise<void> {
+  if (!props.defectActId || !isLineGuid(positionId) || !item.id) return;
+  const source = props.lines.find((line) => line.id === positionId);
+  const requested = Number(source?.quantity);
+  const quantity = requested > 0 ? requested : (Number(item.quantity) > 0 ? Number(item.quantity) : 1);
+  creatingKey.value = `${positionId}:${item.id}`;
+  error.value = null;
+  try {
+    const dto = await inventoryApi.createTransfer({
+      sourceWarehouse: item.storeName?.trim() || 'Склад',
+      destination: props.destination?.trim() || '',
+      comment: 'Перемещение по дефектному акту',
+      defectActId: props.defectActId,
+      purchaseRequestId: props.purchaseRequestId,
+      lines: [{
+        lineNo: 1,
+        code: item.code || '',
+        name: item.name,
+        catalogNumber: item.agskCode || source?.catalogNumber,
+        quantity,
+        unit: item.unit || source?.unit || 'шт.',
+        availableQuantity: item.quantity,
+        nomenclatureId: item.id,
+        sourceDefectActPartId: positionId
+      }]
+    });
+    visible.value = false;
+    await router.push({ name: 'transfer-detail', params: { id: dto.id } });
+  } catch (e) {
+    error.value = toApiError(e).detail || 'Не удалось создать заявку на перемещение';
+  } finally {
+    creatingKey.value = '';
+  }
 }
 
 async function loadMatch(): Promise<void> {
@@ -194,7 +231,12 @@ watch(tab, (t) => {
                       <span v-if="item.mol"> · МОЛ {{ item.mol }}</span>
                     </div>
                     <div v-if="canTransferForGroup(group.queryId) && item.id" style="margin-top:8px">
-                      <Button size="sm" variant="secondary" @click="onTransfer(group.queryId, item.id, item.storeName)">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        :loading="creatingKey === `${group.queryId}:${item.id}`"
+                        @click="onTransfer(group.queryId, item)"
+                      >
                         Оформить заявку на перемещение ТМЦ
                       </Button>
                     </div>

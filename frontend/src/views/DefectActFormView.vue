@@ -554,7 +554,9 @@ async function deleteDraft() {
     <WarehouseStockModal
       v-model:show="stockOpen"
       :lines="parts.filter((p) => p.name.trim())"
-      :can-create-transfer="canSearchWarehouse"
+      :can-create-transfer="canSearchWarehouse && !!act?.id"
+      :defect-act-id="act?.id"
+      :destination="[projectName, vehicleName].filter(Boolean).join(', ')"
     />
   </NCard>
 </template>

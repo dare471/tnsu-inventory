@@ -14,7 +14,9 @@ public sealed record MaterialTransferLineInput(
     string? CatalogNumber,
     decimal Quantity,
     string Unit,
-    decimal? AvailableQuantity);
+    decimal? AvailableQuantity,
+    string? NomenclatureId = null,
+    Guid? SourceDefectActPartId = null);
 
 public sealed record MaterialTransferLineDto(
     Guid Id,
@@ -24,7 +26,9 @@ public sealed record MaterialTransferLineDto(
     string? CatalogNumber,
     decimal Quantity,
     string Unit,
-    decimal? AvailableQuantity);
+    decimal? AvailableQuantity,
+    string? NomenclatureId,
+    Guid? SourceDefectActPartId);
 
 public sealed record MaterialTransferDto(
     Guid Id,
@@ -34,6 +38,9 @@ public sealed record MaterialTransferDto(
     string SourceWarehouse,
     string Destination,
     string? Comment,
+    Guid? DefectActId,
+    string? DefectActNumber,
+    Guid? PurchaseRequestId,
     string CreatedByFullName,
     DateTimeOffset CreatedAt,
     IReadOnlyList<MaterialTransferLineDto> Lines,
@@ -43,7 +50,9 @@ public sealed record CreateMaterialTransferRequest(
     string SourceWarehouse,
     string Destination,
     string? Comment,
-    IReadOnlyList<MaterialTransferLineInput> Lines);
+    IReadOnlyList<MaterialTransferLineInput> Lines,
+    Guid? DefectActId = null,
+    Guid? PurchaseRequestId = null);
 
 public sealed record UpdateMaterialTransferRequest(
     string SourceWarehouse,
@@ -96,10 +105,14 @@ public sealed class ListMaterialTransfersHandler(IInventoryDbContext db, ICurren
             request.SourceWarehouse,
             request.Destination,
             request.Comment,
+            request.DefectActId,
+            request.DefectActNumber,
+            request.PurchaseRequestId,
             request.CreatedBy?.FullName ?? "—",
             request.CreatedAt,
             request.Lines.OrderBy(l => l.LineNo).Select(l => new MaterialTransferLineDto(
-                l.Id, l.LineNo, l.Code, l.Name, l.CatalogNumber, l.Quantity, l.Unit, l.AvailableQuantity)).ToList(),
+                l.Id, l.LineNo, l.Code, l.Name, l.CatalogNumber, l.Quantity, l.Unit, l.AvailableQuantity,
+                l.NomenclatureId, l.SourceDefectActPartId)).ToList(),
             request.Status == TransferStatus.Draft && currentUser.UserId == request.CreatedByUserId);
 }
 
@@ -133,6 +146,20 @@ public sealed class CreateMaterialTransferHandler(IInventoryDbContext db, ICurre
         if (req.Lines.Count == 0)
             throw new ValidationFailedException("Добавьте хотя бы одну позицию.");
 
+        string? defectActNumber = null;
+        if (req.DefectActId is Guid defectActId)
+        {
+            defectActNumber = await db.DefectActs.AsNoTracking()
+                .Where(a => a.Id == defectActId)
+                .Select(a => a.Number)
+                .FirstOrDefaultAsync(ct)
+                ?? throw new NotFoundException("DefectAct", defectActId);
+        }
+
+        if (req.PurchaseRequestId is Guid purchaseRequestId
+            && !await db.PurchaseRequests.AsNoTracking().AnyAsync(p => p.Id == purchaseRequestId, ct))
+            throw new NotFoundException("PurchaseRequest", purchaseRequestId);
+
         var year = DateTime.UtcNow.Year;
         var count = await db.MaterialTransfers.CountAsync(x => x.CreatedAt.Year == year, ct);
         var request = new MaterialTransferRequest
@@ -141,7 +168,10 @@ public sealed class CreateMaterialTransferHandler(IInventoryDbContext db, ICurre
             CreatedByUserId = userId,
             SourceWarehouse = req.SourceWarehouse.Trim(),
             Destination = req.Destination.Trim(),
-            Comment = req.Comment?.Trim()
+            Comment = string.IsNullOrWhiteSpace(req.Comment) ? null : req.Comment.Trim(),
+            DefectActId = req.DefectActId,
+            DefectActNumber = defectActNumber,
+            PurchaseRequestId = req.PurchaseRequestId
         };
         request.Lines = req.Lines.Select(MapLine).ToList();
         foreach (var line in request.Lines)
@@ -159,8 +189,10 @@ public sealed class CreateMaterialTransferHandler(IInventoryDbContext db, ICurre
         Name = line.Name.Trim(),
         CatalogNumber = string.IsNullOrWhiteSpace(line.CatalogNumber) ? null : line.CatalogNumber.Trim(),
         Quantity = line.Quantity,
-        Unit = MeasurementUnits.Normalize(line.Unit),
-        AvailableQuantity = line.AvailableQuantity
+        Unit = MeasurementUnits.Normalize(string.IsNullOrWhiteSpace(line.Unit) ? "шт." : line.Unit),
+        AvailableQuantity = line.AvailableQuantity,
+        NomenclatureId = string.IsNullOrWhiteSpace(line.NomenclatureId) ? null : line.NomenclatureId.Trim(),
+        SourceDefectActPartId = line.SourceDefectActPartId
     };
 }
 

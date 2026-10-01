@@ -12,6 +12,7 @@ const loading = ref(true);
 
 const columns: DataTableColumns<MaterialTransferDto> = [
   { title: 'Номер', key: 'number' },
+  { title: 'Дефектный акт', key: 'defectActNumber', render: (r) => r.defectActNumber || '—' },
   { title: 'Статус', key: 'statusLabel' },
   { title: 'Откуда', key: 'sourceWarehouse' },
   { title: 'Куда', key: 'destination' },

@@ -11,6 +11,8 @@ public class MaterialTransferLine
     public decimal Quantity { get; set; }
     public string Unit { get; set; } = "шт.";
     public decimal? AvailableQuantity { get; set; }
+    public string? NomenclatureId { get; set; }
+    public Guid? SourceDefectActPartId { get; set; }
 
     public MaterialTransferRequest? TransferRequest { get; set; }
 }

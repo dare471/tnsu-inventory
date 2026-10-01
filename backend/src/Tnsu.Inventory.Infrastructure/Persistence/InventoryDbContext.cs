@@ -156,6 +156,8 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
             e.Property(x => x.Status).HasMaxLength(32);
             e.Property(x => x.SourceWarehouse).HasMaxLength(256);
             e.Property(x => x.Destination).HasMaxLength(256);
+            e.Property(x => x.DefectActNumber).HasMaxLength(32);
+            e.HasIndex(x => x.DefectActId);
             e.HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedByUserId);
         });
 
@@ -165,6 +167,7 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
             e.HasKey(x => x.Id);
             e.Property(x => x.CatalogNumber).HasMaxLength(50);
             e.Property(x => x.Unit).HasMaxLength(32);
+            e.Property(x => x.NomenclatureId).HasMaxLength(64);
             e.Property(x => x.AvailableQuantity).HasPrecision(18, 3);
             e.HasOne(x => x.TransferRequest).WithMany(x => x.Lines).HasForeignKey(x => x.TransferRequestId);
         });

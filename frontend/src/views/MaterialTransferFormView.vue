@@ -19,6 +19,9 @@ const comment = ref('');
 const lines = ref<MaterialTransferLineInput[]>([]);
 const statusLabel = ref('');
 const canEdit = ref(true);
+const defectActId = ref('');
+const defectActNumber = ref('');
+const number = ref('');
 const error = ref('');
 const message = ref('');
 const saving = ref(false);
@@ -62,6 +65,9 @@ onMounted(async () => {
       lines.value = dto.lines.map((l) => ({ ...l }));
       statusLabel.value = dto.statusLabel;
       canEdit.value = dto.canEdit;
+      defectActId.value = dto.defectActId ?? '';
+      defectActNumber.value = dto.defectActNumber ?? '';
+      number.value = dto.number;
     } catch (e) {
       error.value = toApiError(e).detail;
     }
@@ -124,10 +130,18 @@ async function submit() {
 </script>
 
 <template>
-  <NCard :title="isNew ? 'Новая заявка на перемещение ТМЦ' : `Перемещение ${statusLabel}`">
+  <NCard :title="isNew ? 'Новая заявка на перемещение ТМЦ' : `Перемещение ${number || ''} · ${statusLabel}`">
     <NSpace vertical :size="16">
       <NAlert v-if="error" type="error">{{ error }}</NAlert>
       <NAlert v-if="message" type="success">{{ message }}</NAlert>
+      <div v-if="defectActId">
+        <strong>Дефектный акт:</strong>
+        <a
+          href="#"
+          style="margin-left:6px;color:var(--brand-orange);font-weight:600"
+          @click.prevent="router.push({ name: 'defect-act-detail', params: { id: defectActId } })"
+        >{{ defectActNumber || 'открыть' }}</a>
+      </div>
       <div class="t-grid-2">
         <NFormItem label="Склад-отправитель">
           <NInput v-model:value="sourceWarehouse" :disabled="!canEdit" />

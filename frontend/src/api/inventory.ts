@@ -246,14 +246,17 @@ export interface StockBalanceDto {
 export interface MaterialTransferLineInput {
   lineNo: number; code: string; name: string; catalogNumber?: string;
   quantity: number; unit: string; availableQuantity?: number | null;
+  nomenclatureId?: string; sourceDefectActPartId?: string;
 }
 export interface SaveMaterialTransferRequest {
   sourceWarehouse: string; destination: string; comment?: string;
+  defectActId?: string; purchaseRequestId?: string;
   lines: MaterialTransferLineInput[];
 }
 export interface MaterialTransferDto {
   id: string; number: string; status: string; statusLabel: string;
   sourceWarehouse: string; destination: string; comment?: string;
+  defectActId?: string; defectActNumber?: string; purchaseRequestId?: string;
   createdByFullName: string; createdAt: string; canEdit: boolean;
   lines: MaterialTransferLineInput[];
 }

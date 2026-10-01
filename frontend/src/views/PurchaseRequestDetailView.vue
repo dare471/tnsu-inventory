@@ -12,12 +12,16 @@ import {
 } from '@/api/inventory';
 import { openAttachment, toApiError } from '@/api/client';
 import { repairCategoryOptions, repairTypeOptions, unitOptions } from '@/config/units';
+import { STOCK_ROLES } from '@/config/roles';
+import { useAuthStore } from '@/stores/auth';
 
 import SparePartNameField from '@/components/SparePartNameField.vue';
+import WarehouseStockModal from '@/components/WarehouseStockModal.vue';
 
 const route = useRoute();
 const router = useRouter();
 const msg = useMessage();
+const auth = useAuthStore();
 
 const request = ref<PurchaseRequestDto | null>(null);
 const approvals = ref<ApprovalStepDto[]>([]);
@@ -74,6 +78,18 @@ function formatDateOnlyDisplay(value?: string | null): string {
 const actingRoleLabel = computed(() => inboxItem.value?.approverRoleLabel ?? '—');
 const editable = computed(() => !!request.value?.canEdit);
 const headerLocked = computed(() => !!request.value?.lockedToDefectAct);
+const canSearchWarehouse = computed(() =>
+  !!request.value?.defectActId && STOCK_ROLES.has(auth.user?.role ?? ''));
+const stockOpen = ref(false);
+const stockLines = computed(() => activeLines.value
+  .filter((line) => line.name.trim())
+  .map((line) => ({
+    id: line.sourceDefectActPartId,
+    name: line.name,
+    catalogNumber: line.catalogNumber,
+    unit: line.unit,
+    quantity: line.quantity
+  })));
 const headerEditable = computed(() => editable.value && !headerLocked.value);
 const activeLines = computed(() => lines.value.filter((l) => !l.isRemoved));
 const removedLines = computed(() => lines.value.filter((l) => l.isRemoved));
@@ -571,7 +587,12 @@ async function closeRequest() {
       </NFormItem>
 
       <div>
-        <h3 style="margin:0 0 12px">Позиции</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px">
+          <h3 style="margin:0">Позиции</h3>
+          <NButton v-if="canSearchWarehouse" secondary @click="stockOpen = true">
+            Проверить остатки на складах
+          </NButton>
+        </div>
         <div class="t-table-wrap">
           <NDataTable :columns="lineColumns" :data="activeLines" size="small" :bordered="false" />
         </div>
@@ -703,6 +724,15 @@ async function closeRequest() {
         </NSpace>
       </NCard>
     </NModal>
+    <WarehouseStockModal
+      v-if="request.defectActId"
+      v-model:show="stockOpen"
+      :lines="stockLines"
+      :can-create-transfer="canSearchWarehouse"
+      :defect-act-id="request.defectActId"
+      :purchase-request-id="request.id"
+      :destination="[request.projectName, request.vehicleName].filter(Boolean).join(', ')"
+    />
   </NCard>
 </template>
 

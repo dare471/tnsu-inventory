@@ -204,21 +204,6 @@ export async function getNomenclatureFilters(): Promise<NomenclatureFilters> {
   return mapFilters(data);
 }
 
-const TMC_TRANSFER_PAGE =
-  'https://tnsukz.sharepoint.com/sites/requests/SitePages/'
-  + '%D0%9F%D0%BE%D1%80%D1%82%D0%B0%D0%BB-%D0%97%D0%B0%D1%8F%D0%B2%D0%BE%D0%BA.aspx';
-
 export function isLineGuid(id: string | undefined | null): boolean {
   return !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim());
-}
-
-export function openTmcTransferRequest(positionId: string, nomenclatureId: string, storeName?: string): void {
-  const parts = [
-    `rptype=${encodeURIComponent('wh-tmc-transfer')}`,
-    `positionId=${encodeURIComponent(positionId)}`,
-    `nomenclatureId=${encodeURIComponent(nomenclatureId)}`
-  ];
-  const store = storeName?.trim();
-  if (store) parts.push(`storeName=${encodeURIComponent(store)}`);
-  window.open(`${TMC_TRANSFER_PAGE}?${parts.join('&')}`, '_blank', 'noopener,noreferrer');
 }
