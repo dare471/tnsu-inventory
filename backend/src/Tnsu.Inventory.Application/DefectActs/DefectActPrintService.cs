@@ -1,7 +1,9 @@
 using System.Text;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Tnsu.Inventory.Application.Common;
 using Tnsu.Inventory.Application.Common.Interfaces;
+using Tnsu.Inventory.Domain;
 using Tnsu.Inventory.Domain.Enums;
 
 namespace Tnsu.Inventory.Application.DefectActs;
@@ -39,17 +41,21 @@ public static class DefectActPrintService
             </style></head><body>
             """);
 
+        sb.Append(CompanyPrintHeader.Html());
         sb.Append($"<h1>ДЕФЕКТНЫЙ АКТ № {Escape(act.Number)}</h1>");
         sb.Append($"<p style=\"text-align:center\">от {act.CreatedAt.LocalDateTime:dd.MM.yyyy}</p>");
 
         sb.Append("<table class=\"meta\"><tbody>");
         AppendRow(sb, "Проект", $"{Escape(act.ProjectCode)} — {Escape(act.ProjectName)}");
         AppendRow(sb, "Техника (ОС)", Escape(act.VehicleName));
-        AppendRow(sb, "Группа", Escape(act.VehicleGroupName));
+        AppendRow(sb, "Подразделение МОЛ", Escape(act.VehicleGroupName));
         AppendRow(sb, "Гос. номер", Escape(act.StateNumber));
         AppendRow(sb, "VIN", string.IsNullOrWhiteSpace(act.VinCode) ? "—" : Escape(act.VinCode));
         AppendRow(sb, "Год выпуска", act.VehicleYear?.ToString() ?? "—");
-        AppendRow(sb, "Тип ремонта", Escape(RepairType.Label(act.RepairType)));
+        AppendRow(sb, "Одометр", act.Odometer?.ToString() ?? "—");
+        AppendRow(sb, "Моточасы", act.EngineHours?.ToString() ?? "—");
+        AppendRow(sb, "Вид ремонта", Escape(RepairType.Label(act.RepairType)));
+        AppendRow(sb, "Категория ремонта", Escape(RepairCategory.Label(act.RepairCategory)));
         AppendRow(sb, "Инициатор", Escape(act.CreatedBy?.FullName ?? "—"));
         AppendRow(sb, "Статус", Escape(WorkflowStatus.Label(act.Status)));
         sb.Append("</tbody></table>");
@@ -58,24 +64,24 @@ public static class DefectActPrintService
         sb.Append($"<p>{Escape(act.MalfunctionDescription).Replace("\n", "<br/>")}</p>");
 
         sb.Append("<p><strong>Требуемые запчасти / материалы:</strong></p>");
-        sb.Append("<table class=\"items\"><thead><tr><th>№</th><th>Наименование</th><th>Кат. №</th><th>Кол-во</th><th>Ед.</th></tr></thead><tbody>");
+        sb.Append("<table class=\"items\"><thead><tr><th>№</th><th>Наименование</th><th>Партномер</th><th>Кол-во</th><th>Ед.</th><th>Факт. остаток</th></tr></thead><tbody>");
         foreach (var p in act.Parts.OrderBy(x => x.LineNo))
         {
-            sb.Append($"<tr><td>{p.LineNo}</td><td>{Escape(p.Name)}</td><td>{Escape(p.CatalogNumber ?? "—")}</td><td>{p.Quantity}</td><td>{Escape(p.Unit ?? "—")}</td></tr>");
+            sb.Append($"<tr><td>{p.LineNo}</td><td>{Escape(p.Name)}</td><td>{Escape(p.CatalogNumber ?? "—")}</td><td>{p.Quantity}</td><td>{Escape(p.Unit ?? "—")}</td><td>{p.ActualStockQuantity?.ToString() ?? "—"}</td></tr>");
         }
         if (act.Parts.Count == 0)
-            sb.Append("<tr><td colspan=\"5\">—</td></tr>");
+            sb.Append("<tr><td colspan=\"6\">—</td></tr>");
         sb.Append("</tbody></table>");
 
         if (approvals.Count > 0)
         {
-            sb.Append("<p><strong>Согласование:</strong></p><table class=\"items\"><thead><tr><th>Шаг</th><th>Роль</th><th>ФИО</th><th>Решение</th><th>Дата</th></tr></thead><tbody>");
+            sb.Append("<p><strong>Согласование:</strong></p><table class=\"items\"><thead><tr><th>Шаг</th><th>Роль</th><th>ФИО</th><th>Решение</th><th>Комментарий</th><th>Дата</th></tr></thead><tbody>");
             foreach (var s in approvals)
             {
                 var decisionLabel = s.Action is null
                     ? ApprovalStepStatus.Label(s.Status)
                     : ApprovalAction.Label(s.Action);
-                sb.Append($"<tr><td>{s.OrderNo}</td><td>{Escape(MechanizationRole.Label(s.ApproverRole))}</td><td>{Escape(s.Approver?.FullName ?? "—")}</td><td>{Escape(decisionLabel)}</td><td>{s.DecidedAt?.LocalDateTime.ToString("dd.MM.yyyy HH:mm") ?? "—"}</td></tr>");
+                sb.Append($"<tr><td>{s.OrderNo}</td><td>{Escape(MechanizationRole.Label(s.ApproverRole))}</td><td>{Escape(s.Approver?.FullName ?? "—")}</td><td>{Escape(decisionLabel)}</td><td>{Escape(s.Comment ?? "—")}</td><td>{s.DecidedAt?.LocalDateTime.ToString("dd.MM.yyyy HH:mm") ?? "—"}</td></tr>");
             }
             sb.Append("</tbody></table>");
         }

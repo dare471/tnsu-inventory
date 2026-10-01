@@ -1,7 +1,9 @@
 using System.Text;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Tnsu.Inventory.Application.Common;
 using Tnsu.Inventory.Application.Common.Interfaces;
+using Tnsu.Inventory.Domain;
 using Tnsu.Inventory.Domain.Enums;
 
 namespace Tnsu.Inventory.Application.PurchaseRequests;
@@ -41,17 +43,21 @@ public static class PurchaseRequestPrintService
             </style></head><body>
             """);
 
+        sb.Append(CompanyPrintHeader.Html());
         sb.Append($"<h1>ЗАЯВКА НА ЗАКУПКУ ТМЦ № {Escape(request.Number)}</h1>");
         sb.Append($"<p style=\"text-align:center\">от {request.CreatedAt.LocalDateTime:dd.MM.yyyy}</p>");
 
         sb.Append("<table class=\"meta\"><tbody>");
         AppendRow(sb, "Проект", $"{Escape(request.ProjectCode)} — {Escape(request.ProjectName)}");
         AppendRow(sb, "Техника", Escape(request.VehicleName));
-        AppendRow(sb, "Группа", Escape(request.VehicleGroupName));
+        AppendRow(sb, "Подразделение МОЛ", Escape(request.VehicleGroupName));
         AppendRow(sb, "Гос. номер", Escape(request.StateNumber));
         AppendRow(sb, "VIN", string.IsNullOrWhiteSpace(request.VinCode) ? "—" : Escape(request.VinCode));
         AppendRow(sb, "Год выпуска", request.VehicleYear?.ToString() ?? "—");
-        AppendRow(sb, "Тип ремонта", Escape(RepairType.Label(request.RepairType)));
+        AppendRow(sb, "Одометр", request.Odometer?.ToString() ?? "—");
+        AppendRow(sb, "Моточасы", request.EngineHours?.ToString() ?? "—");
+        AppendRow(sb, "Вид ремонта", Escape(RepairType.Label(request.RepairType)));
+        AppendRow(sb, "Категория ремонта", Escape(RepairCategory.Label(request.RepairCategory)));
         AppendRow(sb, "Дата поставки", request.DeliveryDate?.ToString("dd.MM.yyyy") ?? "—");
         if (request.DefectAct is not null)
             AppendRow(sb, "Дефектный акт", Escape(request.DefectAct.Number));
@@ -65,8 +71,8 @@ public static class PurchaseRequestPrintService
         sb.Append($"<p>{Escape(request.Description).Replace("\n", "<br/>")}</p>");
 
         sb.Append("<p><strong>Позиции:</strong></p>");
-        sb.Append("<table class=\"items\"><thead><tr><th>№</th><th>Код</th><th>Наименование</th><th>Кат. №</th><th>Кол-во</th><th>Ед.</th></tr></thead><tbody>");
-        foreach (var line in request.Lines.OrderBy(x => x.LineNo))
+        sb.Append("<table class=\"items\"><thead><tr><th>№</th><th>Код</th><th>Наименование</th><th>Партномер</th><th>Кол-во</th><th>Ед.</th></tr></thead><tbody>");
+        foreach (var line in request.Lines.Where(x => !x.IsRemoved).OrderBy(x => x.LineNo))
         {
             sb.Append($"<tr><td>{line.LineNo}</td><td>{Escape(line.Code)}</td><td>{Escape(line.Name)}</td><td>{Escape(line.CatalogNumber ?? "—")}</td><td>{line.Quantity}</td><td>{Escape(line.Unit ?? "—")}</td></tr>");
         }
@@ -76,13 +82,13 @@ public static class PurchaseRequestPrintService
 
         if (approvals.Count > 0)
         {
-            sb.Append("<p><strong>Согласование:</strong></p><table class=\"items\"><thead><tr><th>Шаг</th><th>Роль</th><th>ФИО</th><th>Решение</th><th>Дата</th></tr></thead><tbody>");
+            sb.Append("<p><strong>Согласование:</strong></p><table class=\"items\"><thead><tr><th>Шаг</th><th>Роль</th><th>ФИО</th><th>Решение</th><th>Комментарий</th><th>Дата</th></tr></thead><tbody>");
             foreach (var s in approvals)
             {
                 var decisionLabel = s.Action is null
                     ? ApprovalStepStatus.Label(s.Status)
                     : ApprovalAction.Label(s.Action);
-                sb.Append($"<tr><td>{s.OrderNo}</td><td>{Escape(MechanizationRole.Label(s.ApproverRole))}</td><td>{Escape(s.Approver?.FullName ?? "—")}</td><td>{Escape(decisionLabel)}</td><td>{s.DecidedAt?.LocalDateTime.ToString("dd.MM.yyyy HH:mm") ?? "—"}</td></tr>");
+                sb.Append($"<tr><td>{s.OrderNo}</td><td>{Escape(MechanizationRole.Label(s.ApproverRole))}</td><td>{Escape(s.Approver?.FullName ?? "—")}</td><td>{Escape(decisionLabel)}</td><td>{Escape(s.Comment ?? "—")}</td><td>{s.DecidedAt?.LocalDateTime.ToString("dd.MM.yyyy HH:mm") ?? "—"}</td></tr>");
             }
             sb.Append("</tbody></table>");
         }

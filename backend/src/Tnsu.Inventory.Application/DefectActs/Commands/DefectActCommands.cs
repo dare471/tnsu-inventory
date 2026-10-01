@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Tnsu.Inventory.Application.Common;
 using Tnsu.Inventory.Application.Common.Exceptions;
 using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Application.DefectActs;
@@ -37,6 +38,9 @@ public sealed class CreateDefectActHandler(IInventoryDbContext db, ICurrentUser 
             VinCode = req.VinCode.Trim(),
             VehicleYear = req.VehicleYear,
             RepairType = RepairType.Normalize(req.RepairType),
+            RepairCategory = RepairCategory.Normalize(req.RepairCategory),
+            Odometer = req.Odometer,
+            EngineHours = req.EngineHours,
             MalfunctionDescription = req.MalfunctionDescription.Trim()
         };
 
@@ -45,10 +49,11 @@ public sealed class CreateDefectActHandler(IInventoryDbContext db, ICurrentUser 
             DefectActId = act.Id,
             LineNo = p.LineNo,
             Name = p.Name.Trim(),
-            CatalogNumber = p.CatalogNumber?.Trim(),
+            CatalogNumber = PartFieldRules.CatalogNumber(p.CatalogNumber),
             Quantity = p.Quantity,
-            Unit = p.Unit?.Trim(),
-            Notes = p.Notes?.Trim()
+            Unit = PartFieldRules.Unit(p.Unit),
+            Notes = p.Notes?.Trim(),
+            ActualStockQuantity = p.ActualStockQuantity
         }).ToList();
 
         db.DefectActs.Add(act);
@@ -80,20 +85,31 @@ public sealed class UpdateDefectActHandler(IInventoryDbContext db, ICurrentUser 
         EnsureEditable(act, currentUser);
 
         act.RepairType = RepairType.Normalize(cmd.Request.RepairType);
+        act.RepairCategory = RepairCategory.Normalize(cmd.Request.RepairCategory);
+        act.Odometer = cmd.Request.Odometer;
+        act.EngineHours = cmd.Request.EngineHours;
         act.MalfunctionDescription = cmd.Request.MalfunctionDescription.Trim();
         act.UpdatedAt = DateTimeOffset.UtcNow;
 
-        db.DefectActParts.RemoveRange(act.Parts);
-        act.Parts = cmd.Request.Parts.Select(p => new DefectActPart
+        var stockByLine = act.Parts.ToDictionary(p => p.LineNo, p => p.ActualStockQuantity);
+        foreach (var existing in act.Parts.ToList())
+            db.DefectActParts.Remove(existing);
+        act.Parts.Clear();
+        foreach (var p in cmd.Request.Parts)
         {
-            DefectActId = act.Id,
-            LineNo = p.LineNo,
-            Name = p.Name.Trim(),
-            CatalogNumber = p.CatalogNumber?.Trim(),
-            Quantity = p.Quantity,
-            Unit = p.Unit?.Trim(),
-            Notes = p.Notes?.Trim()
-        }).ToList();
+            stockByLine.TryGetValue(p.LineNo, out var keptStock);
+            act.Parts.Add(new DefectActPart
+            {
+                DefectActId = act.Id,
+                LineNo = p.LineNo,
+                Name = p.Name.Trim(),
+                CatalogNumber = PartFieldRules.CatalogNumber(p.CatalogNumber),
+                Quantity = p.Quantity,
+                Unit = PartFieldRules.Unit(p.Unit),
+                Notes = p.Notes?.Trim(),
+                ActualStockQuantity = p.ActualStockQuantity ?? keptStock
+            });
+        }
 
         await db.SaveChangesAsync(ct);
         return await DefectActMapper.ToDtoAsync(db, act.Id, currentUser, ct);
@@ -127,10 +143,11 @@ public sealed class SubmitDefectActHandler(
         if (string.IsNullOrWhiteSpace(act.MalfunctionDescription))
             throw new ValidationFailedException("Укажите описание неисправности.");
 
-        var hasPhoto = await db.Attachments.AnyAsync(
-            a => a.DefectActId == act.Id && a.Category == AttachmentCategories.DefectPhoto, ct);
-        if (!hasPhoto)
-            throw new ValidationFailedException("Прикрепите фото неисправной детали.");
+        if (!RepairType.IsValid(act.RepairType))
+            throw new ValidationFailedException("Укажите плановый или аварийный ремонт.");
+
+        if (!RepairCategory.IsValid(act.RepairCategory))
+            throw new ValidationFailedException("Укажите капитальный или текущий ремонт.");
 
         var hasPending = await db.ApprovalSteps.AnyAsync(
             s => s.DefectActId == act.Id && s.Status == ApprovalStepStatus.Pending, ct);
@@ -224,5 +241,45 @@ public sealed class DeleteDraftDefectActHandler(IInventoryDbContext db, ICurrent
         db.DefectActParts.RemoveRange(act.Parts);
         db.DefectActs.Remove(act);
         await db.SaveChangesAsync(ct);
+    }
+}
+
+public sealed record UpdateDefectActStockCommand(Guid Id, UpdateDefectActStockRequest Request) : IRequest<DefectActDto>;
+
+public sealed class UpdateDefectActStockHandler(IInventoryDbContext db, ICurrentUser currentUser)
+    : IRequestHandler<UpdateDefectActStockCommand, DefectActDto>
+{
+    public async Task<DefectActDto> Handle(UpdateDefectActStockCommand cmd, CancellationToken ct)
+    {
+        if (currentUser.Role != MechanizationRole.ProjectStorekeeper)
+            throw new ForbiddenException("Фактический остаток вносит кладовщик проекта.");
+
+        var act = await db.DefectActs
+            .Include(a => a.Parts)
+            .FirstOrDefaultAsync(a => a.Id == cmd.Id, ct)
+            ?? throw new NotFoundException("DefectAct", cmd.Id);
+
+        var canEdit = await db.ApprovalSteps.AnyAsync(s =>
+            s.DefectActId == act.Id
+            && s.ApproverUserId == currentUser.UserId
+            && s.ApproverRole == MechanizationRole.ProjectStorekeeper
+            && s.Status == ApprovalStepStatus.Pending
+            && s.AssignedAt != null
+            && s.DecidedAt == null, ct);
+        if (!canEdit)
+            throw new ForbiddenException("Остаток можно внести только на вашем шаге согласования.");
+
+        foreach (var line in cmd.Request.Parts)
+        {
+            var part = act.Parts.FirstOrDefault(p => p.Id == line.PartId)
+                ?? throw new ValidationFailedException("Позиция дефектного акта не найдена.");
+            if (line.ActualStockQuantity is < 0)
+                throw new ValidationFailedException("Фактический остаток не может быть отрицательным.");
+            part.ActualStockQuantity = line.ActualStockQuantity;
+        }
+
+        act.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return await DefectActMapper.ToDtoAsync(db, act.Id, currentUser, ct);
     }
 }

@@ -7,6 +7,8 @@ public static class MechanizationRole
     public const string Security = "security";
     public const string ProjectManager = "project_manager";
     public const string WarehouseCoordinator = "warehouse_coordinator";
+    public const string MaintenancePlanner = "maintenance_planner";
+    public const string Accountant = "accountant";
     public const string ChiefMechanic = "chief_mechanic";
     public const string OmtsHead = "omts_head";
     public const string OmtsSpecialist = "omts_specialist";
@@ -21,7 +23,7 @@ public static class MechanizationRole
         WarehouseCoordinator
     ];
 
-    public static readonly IReadOnlyList<string> PurchaseApprovalRoles =
+    public static readonly IReadOnlyList<string> DefectActApprovalRoles =
     [
         ProjectStorekeeper,
         Security,
@@ -29,6 +31,22 @@ public static class MechanizationRole
         WarehouseCoordinator,
         ChiefMechanic
     ];
+
+    public static readonly IReadOnlyList<string> PurchaseApprovalRoles =
+    [
+        ProjectStorekeeper,
+        Security,
+        ProjectManager,
+        WarehouseCoordinator,
+        MaintenancePlanner,
+        ChiefMechanic
+    ];
+
+    public static readonly IReadOnlySet<string> StockSearchRoles = new HashSet<string>
+    {
+        WarehouseCoordinator,
+        MaintenancePlanner
+    };
 
     /// <summary>Кто назначает исполнителя после утверждения заявки.</summary>
     public static readonly IReadOnlySet<string> ExecutionAssignerRoles = new HashSet<string>
@@ -59,6 +77,8 @@ public static class MechanizationRole
         Security,
         ProjectManager,
         WarehouseCoordinator,
+        MaintenancePlanner,
+        Accountant,
         ChiefMechanic,
         OmtsHead,
         OmtsSpecialist,
@@ -73,6 +93,8 @@ public static class MechanizationRole
         Security => "СБ",
         ProjectManager => "РП / Начальник участка",
         WarehouseCoordinator => "Координатор складского хозяйства",
+        MaintenancePlanner => "Инженер по планированию ТОиР",
+        Accountant => "Бухгалтер",
         ChiefMechanic => "Главный механик",
         OmtsHead => "Руководитель ОМТС",
         OmtsSpecialist => "Специалист ОМТС",
@@ -86,4 +108,12 @@ public static class MechanizationRole
 
     public static bool IsExecutorRole(string? role) =>
         role is not null && ExecutorRoles.Contains(role);
+
+    public static bool CanSearchStock(string? role) =>
+        role is not null && StockSearchRoles.Contains(role);
+
+    public static IReadOnlyList<string> ApprovalRolesFor(string documentType) =>
+        documentType == "purchase_request"
+            ? PurchaseApprovalRoles
+            : DefectActApprovalRoles;
 }

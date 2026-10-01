@@ -12,6 +12,9 @@ public interface IInventoryDbContext
     Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.DocumentApprovalAssignee> DocumentApprovalAssignees { get; }
     Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.DocumentAttachment> Attachments { get; }
     Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.SupplierOrder> SupplierOrders { get; }
+    Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.DocumentChangeEntry> DocumentChanges { get; }
+    Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.MaterialTransferRequest> MaterialTransfers { get; }
+    Microsoft.EntityFrameworkCore.DbSet<Domain.Entities.MaterialTransferLine> MaterialTransferLines { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
@@ -31,6 +34,7 @@ public interface IDictionary1CClient
     Task<IReadOnlyList<WorkTypeDto>> GetWorkTypesAsync(CancellationToken ct);
     Task<IReadOnlyList<NomenclatureDto>> GetNomenclatureAsync(string? search, CancellationToken ct);
     Task<IReadOnlyList<ContractorDto>> GetContractorsAsync(string? search, CancellationToken ct);
+    Task<IReadOnlyList<StockBalanceDto>> GetStockBalancesAsync(string? search, CancellationToken ct);
 }
 
 public sealed record ProjectDto(Guid Id, string Code, string ProjectName);
@@ -39,6 +43,13 @@ public sealed record VehicleDto(
 public sealed record ProjectSectionDto(Guid Id, Guid ProjectId, string Code, string Name);
 public sealed record WorkTypeDto(Guid Id, string Code, string Name);
 public sealed record NomenclatureDto(Guid Id, string Code, string Name, string? Unit);
+public sealed record StockBalanceDto(
+    string Id,
+    string Code,
+    string Name,
+    string? Unit,
+    decimal? Quantity,
+    string Warehouse);
 public sealed record ContractorDto(Guid Id, string Code, string Name, string? Inn);
 
 public sealed record SparePartDto(

@@ -108,6 +108,28 @@ public sealed class HttpDictionary1CClient(
             r.Code ?? "", r.Name ?? "", r.Unit)).ToList();
     }
 
+    public async Task<IReadOnlyList<StockBalanceDto>> GetStockBalancesAsync(string? search, CancellationToken ct)
+    {
+        var path = string.IsNullOrWhiteSpace(search)
+            ? "/Dictionary/StockBalances"
+            : $"/Dictionary/StockBalances?search={Uri.EscapeDataString(search)}";
+        var rows = await GetAsync<StockApiRow>(path, ct);
+        if (rows.Count > 0)
+        {
+            return rows.Select(r => new StockBalanceDto(
+                r.ResolvedId ?? Guid.NewGuid().ToString(),
+                r.ResolvedCode ?? "",
+                r.ResolvedName ?? "",
+                r.ResolvedUnit,
+                r.ResolvedQuantity,
+                string.IsNullOrWhiteSpace(r.ResolvedWarehouse) ? "Склад" : r.ResolvedWarehouse!)).ToList();
+        }
+
+        var nomenclature = await GetNomenclatureAsync(search, ct);
+        return nomenclature.Select(n => new StockBalanceDto(
+            n.Id.ToString(), n.Code, n.Name, n.Unit, null, "Склад")).ToList();
+    }
+
     public async Task<IReadOnlyList<ContractorDto>> GetContractorsAsync(string? search, CancellationToken ct)
     {
         var path = string.IsNullOrWhiteSpace(search)
@@ -243,6 +265,29 @@ public sealed class HttpDictionary1CClient(
         [JsonPropertyName("Code")] public string? Code { get; set; }
         [JsonPropertyName("Name")] public string? Name { get; set; }
         [JsonPropertyName("Unit")] public string? Unit { get; set; }
+    }
+
+    private sealed class StockApiRow
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
+        [JsonPropertyName("Id")] public string? IdPascal { get; set; }
+        [JsonPropertyName("code")] public string? Code { get; set; }
+        [JsonPropertyName("Code")] public string? CodePascal { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("Name")] public string? NamePascal { get; set; }
+        [JsonPropertyName("unit")] public string? Unit { get; set; }
+        [JsonPropertyName("Unit")] public string? UnitPascal { get; set; }
+        [JsonPropertyName("quantity")] public decimal? Quantity { get; set; }
+        [JsonPropertyName("Quantity")] public decimal? QuantityPascal { get; set; }
+        [JsonPropertyName("warehouse")] public string? Warehouse { get; set; }
+        [JsonPropertyName("Warehouse")] public string? WarehousePascal { get; set; }
+
+        public string? ResolvedId => Id ?? IdPascal;
+        public string? ResolvedCode => Code ?? CodePascal;
+        public string? ResolvedName => Name ?? NamePascal;
+        public string? ResolvedUnit => Unit ?? UnitPascal;
+        public decimal? ResolvedQuantity => Quantity ?? QuantityPascal;
+        public string? ResolvedWarehouse => Warehouse ?? WarehousePascal;
     }
 
     private sealed class ContractorApiRow

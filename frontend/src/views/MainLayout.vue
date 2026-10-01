@@ -5,13 +5,13 @@ import { NIcon, NAvatar, NDropdown } from 'naive-ui';
 import { Alert, Button, Sidebar, type SidebarItem } from '@tnsu/ui-kit-vue';
 import {
   HomeOutline, DocumentTextOutline, CartOutline, MailUnreadOutline,
-  LogOutOutline, ChevronDownOutline, SettingsOutline
+  LogOutOutline, ChevronDownOutline, SettingsOutline, CubeOutline, SwapHorizontalOutline
 } from '@vicons/ionicons5';
 import { useAuthStore } from '@/stores/auth';
 import { appBrand } from '@/config/branding';
 import { getEmbedOptions, isEmbedMode } from '@/embed/options';
 import { toApiError } from '@/api/client';
-import { ADMIN_ROLES } from '@/config/roles';
+import { ADMIN_ROLES, STOCK_ROLES } from '@/config/roles';
 import { inventoryApi } from '@/api/inventory';
 
 const auth = useAuthStore();
@@ -58,15 +58,20 @@ const allItems: NavItem[] = [
   { name: 'home', label: 'Главная', icon: HomeOutline },
   { name: 'defect-acts', label: 'Дефектные акты', icon: DocumentTextOutline },
   { name: 'purchase-requests', label: 'Заявки на закупку', icon: CartOutline },
+  { name: 'stock-balances', label: 'Складские остатки', icon: CubeOutline },
+  { name: 'material-transfers', label: 'Перемещение ТМЦ', icon: SwapHorizontalOutline },
   { name: 'inbox', label: 'Входящие согласования', icon: MailUnreadOutline },
   { name: 'admin-users', label: 'Администрирование', icon: SettingsOutline }
 ];
 
 const items = computed(() => {
   const adminAllowed = ADMIN_ROLES.has(auth.user?.role ?? '');
-  const baseItems = adminAllowed
-    ? allItems
-    : allItems.filter((i) => i.name !== 'admin-users');
+  const stockAllowed = STOCK_ROLES.has(auth.user?.role ?? '');
+  const baseItems = allItems.filter((i) => {
+    if (i.name === 'admin-users') return adminAllowed;
+    if (i.name === 'stock-balances' || i.name === 'material-transfers') return stockAllowed;
+    return true;
+  });
 
   if (!embed) return baseItems;
   if (embed.mode === 'lists') return baseItems.filter((i) => i.name !== 'home');

@@ -10,6 +10,7 @@ public class DefectActPart
     public decimal Quantity { get; set; }
     public string? Unit { get; set; }
     public string? Notes { get; set; }
+    public decimal? ActualStockQuantity { get; set; }
 
     public DefectAct? DefectAct { get; set; }
 }

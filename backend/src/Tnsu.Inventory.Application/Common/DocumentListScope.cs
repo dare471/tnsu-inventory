@@ -9,4 +9,7 @@ internal static class DocumentListScope
         user.Role is MechanizationRole.ChiefMechanic
             or MechanizationRole.CommercialDirector
             or MechanizationRole.OmtsHead;
+
+    public static bool CanViewAllDefectActs(ICurrentUser user) =>
+        IsGlobalAdmin(user) || user.Role == MechanizationRole.Accountant;
 }

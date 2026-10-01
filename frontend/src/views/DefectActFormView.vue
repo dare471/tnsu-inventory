@@ -3,13 +3,14 @@ import { computed, h, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   NCard, NForm, NFormItem, NSelect, NInput, NInputNumber, NButton, NAlert, NSpace,
-  NDataTable, NTag, NUpload, NModal, NRadioGroup, NRadio, useMessage, type UploadFileInfo, type DataTableColumns
+  NDataTable, NTag, NUpload, NModal, NRadioGroup, NRadio, NAutoComplete, useMessage, type UploadFileInfo, type DataTableColumns
 } from 'naive-ui';
 import {
   inventoryApi, type ApprovalStepDto, type DefectActDto, type DefectActPartInput,
   type ProjectDto, type VehicleDto, type InboxItem, type AttachmentDto
 } from '@/api/inventory';
-import { toApiError } from '@/api/client';
+import { openAttachment, toApiError } from '@/api/client';
+import { repairCategoryOptions, repairTypeOptions, unitOptions } from '@/config/units';
 
 import SparePartNameField from '@/components/SparePartNameField.vue';
 
@@ -45,14 +46,14 @@ const stateNumber = ref('');
 const vinCode = ref('');
 const vehicleYear = ref<number | null>(null);
 const repairType = ref('planned');
+const repairCategory = ref('current');
+const odometer = ref<number | null>(null);
+const engineHours = ref<number | null>(null);
 const malfunctionDescription = ref('');
-const repairTypeOptions = [
-  { label: 'Плановый ремонт', value: 'planned' },
-  { label: 'Аварийный ремонт', value: 'emergency' }
-];
-const parts = ref<DefectActPartInput[]>([{ lineNo: 1, name: '', quantity: 1, unit: 'шт' }]);
+const parts = ref<Array<DefectActPartInput & { id?: string }>>([{ lineNo: 1, name: '', quantity: 1, unit: 'шт.' }]);
 
 const editable = computed(() => isNew.value || !!act.value?.canEdit);
+const canEditStock = computed(() => !!act.value?.canEditStock);
 const photoAttachments = computed(() => attachments.value.filter((a) => a.category === 'defect_photo'));
 const otherAttachments = computed(() => attachments.value.filter((a) => a.category !== 'defect_photo'));
 
@@ -82,12 +83,13 @@ const partColumns = computed<DataTableColumns<DefectActPartInput>>(() => [
       : row.name
   },
   {
-    title: 'Кат. №',
+    title: 'Партномер',
     key: 'catalogNumber',
     render: (row, index) => h(NInput, {
       value: row.catalogNumber ?? '',
+      maxlength: 50,
       disabled: !editable.value,
-      onUpdateValue: (v: string) => { parts.value[index].catalogNumber = v; }
+      onUpdateValue: (v: string) => { parts.value[index].catalogNumber = v.slice(0, 50); }
     })
   },
   {
@@ -104,12 +106,25 @@ const partColumns = computed<DataTableColumns<DefectActPartInput>>(() => [
   {
     title: 'Ед.',
     key: 'unit',
-    width: 80,
-    render: (row, index) => h(NInput, {
+    width: 140,
+    render: (row, index) => h(NAutoComplete, {
       value: row.unit ?? '',
+      options: unitOptions.map((o) => o.value),
       disabled: !editable.value,
       onUpdateValue: (v: string) => { parts.value[index].unit = v; }
     })
+  },
+  {
+    title: 'Факт. остаток',
+    key: 'actualStockQuantity',
+    width: 140,
+    render: (row, index) => canEditStock.value
+      ? h(NInputNumber, {
+          value: row.actualStockQuantity ?? null,
+          min: 0,
+          onUpdateValue: (v: number | null) => { parts.value[index].actualStockQuantity = v; }
+        })
+      : (row.actualStockQuantity ?? '—')
   },
   editable.value ? {
     title: '',
@@ -134,13 +149,20 @@ const approvalColumns: DataTableColumns<ApprovalStepDto> = [
     key: 'statusDate',
     render: (r) => (r.statusDate ? new Date(r.statusDate).toLocaleString('ru-RU') : '—')
   },
+  { title: 'Запуск', key: 'roundNo', width: 80 },
   { title: 'Комментарий', key: 'comment', render: (r) => r.comment ?? '—' }
 ];
 const attachmentColumns: DataTableColumns<AttachmentDto> = [
   {
     title: 'Файл',
     key: 'fileName',
-    render: (r) => h('a', { href: `/api/attachments/${r.id}`, target: '_blank' }, r.fileName)
+    render: (r) => h('a', {
+      href: '#',
+      onClick: (event: Event) => {
+        event.preventDefault();
+        void openAttachment(r.id, r.fileName).catch((e) => msg.error(toApiError(e).detail));
+      }
+    }, r.fileName)
   },
   {
     title: 'Дата',
@@ -179,10 +201,15 @@ async function loadAct(actId: string) {
   vinCode.value = act.value.vinCode;
   vehicleYear.value = act.value.vehicleYear ?? null;
   repairType.value = act.value.repairType || 'planned';
+  repairCategory.value = act.value.repairCategory || 'current';
+  odometer.value = act.value.odometer ?? null;
+  engineHours.value = act.value.engineHours ?? null;
   malfunctionDescription.value = act.value.malfunctionDescription;
   parts.value = act.value.parts.map((p) => ({
+    id: p.id,
     lineNo: p.lineNo, name: p.name, catalogNumber: p.catalogNumber,
-    quantity: p.quantity, unit: p.unit, notes: p.notes
+    quantity: p.quantity, unit: p.unit, notes: p.notes,
+    actualStockQuantity: p.actualStockQuantity
   }));
 }
 
@@ -233,7 +260,7 @@ function onVehicleChange(v: string) {
 }
 
 function addPart() {
-  parts.value.push({ lineNo: parts.value.length + 1, name: '', quantity: 1, unit: 'шт' });
+  parts.value.push({ lineNo: parts.value.length + 1, name: '', quantity: 1, unit: 'шт.' });
 }
 
 function removePart(idx: number) {
@@ -252,6 +279,9 @@ async function save() {
         stateNumber: stateNumber.value, vinCode: vinCode.value,
         vehicleYear: vehicleYear.value ?? undefined,
         repairType: repairType.value,
+        repairCategory: repairCategory.value,
+        odometer: odometer.value ?? undefined,
+        engineHours: engineHours.value ?? undefined,
         malfunctionDescription: malfunctionDescription.value, parts: parts.value
       });
       router.replace({ name: 'defect-act-detail', params: { id: dto.id } });
@@ -260,10 +290,25 @@ async function save() {
     } else if (id.value) {
       act.value = await inventoryApi.updateDefectAct(id.value, {
         repairType: repairType.value,
+        repairCategory: repairCategory.value,
+        odometer: odometer.value ?? undefined,
+        engineHours: engineHours.value ?? undefined,
         malfunctionDescription: malfunctionDescription.value, parts: parts.value
       });
       message.value = 'Изменения сохранены';
     }
+  } catch (e) {
+    error.value = toApiError(e).detail;
+  }
+}
+
+async function saveStock() {
+  if (!id.value) return;
+  try {
+    act.value = await inventoryApi.updateDefectStock(id.value, parts.value
+      .filter((p) => p.id)
+      .map((p) => ({ partId: p.id!, actualStockQuantity: p.actualStockQuantity ?? null })));
+    message.value = 'Фактический остаток сохранён';
   } catch (e) {
     error.value = toApiError(e).detail;
   }
@@ -381,18 +426,31 @@ async function deleteDraft() {
         <NFormItem label="VIN">
           <NInput v-model:value="vinCode" readonly />
         </NFormItem>
-        <NFormItem label="Год">
+        <NFormItem label="Год выпуска">
           <NInputNumber v-model:value="vehicleYear" :disabled="!editable" style="width:100%" />
         </NFormItem>
-        <NFormItem label="Группа">
+        <NFormItem label="Подразделение МОЛ">
           <NInput v-model:value="vehicleGroupName" readonly />
+        </NFormItem>
+        <NFormItem label="Одометр">
+          <NInputNumber v-model:value="odometer" :disabled="!editable" :min="0" style="width:100%" />
+        </NFormItem>
+        <NFormItem label="Моточасы">
+          <NInputNumber v-model:value="engineHours" :disabled="!editable" :min="0" style="width:100%" />
         </NFormItem>
       </div>
 
-      <NFormItem label="Тип ремонта">
+      <NFormItem label="Плановый / аварийный ремонт">
         <NRadioGroup v-model:value="repairType" :disabled="!editable">
           <NSpace>
             <NRadio v-for="opt in repairTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</NRadio>
+          </NSpace>
+        </NRadioGroup>
+      </NFormItem>
+      <NFormItem label="Капитальный / текущий ремонт">
+        <NRadioGroup v-model:value="repairCategory" :disabled="!editable">
+          <NSpace>
+            <NRadio v-for="opt in repairCategoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</NRadio>
           </NSpace>
         </NRadioGroup>
       </NFormItem>
@@ -411,6 +469,7 @@ async function deleteDraft() {
 
       <NSpace>
         <NButton v-if="editable" type="primary" @click="save">Сохранить черновик</NButton>
+        <NButton v-if="canEditStock" type="primary" @click="saveStock">Сохранить остаток</NButton>
         <NButton v-if="act?.canSubmit" type="primary" @click="submit">Отправить на согласование</NButton>
         <NButton v-if="inboxItem" type="primary" @click="openDecision('approve')">Согласовать</NButton>
         <NButton v-if="inboxItem" secondary @click="openDecision('return')">Вернуть</NButton>
@@ -430,7 +489,7 @@ async function deleteDraft() {
       <div v-if="id">
         <h3 style="margin:0 0 12px">Фото неисправности</h3>
         <p v-if="editable" style="margin:0 0 12px;color:var(--brand-text-muted)">
-          Обязательно для отправки на согласование
+          Фото можно приложить, для отправки на согласование оно не обязательно
         </p>
         <NSpace v-if="editable" style="margin-bottom:12px">
           <NUpload accept="image/*" :show-file-list="false" @change="uploadPhoto">
@@ -472,8 +531,8 @@ async function deleteDraft() {
         <NFormItem label="Роль">
           <NInput :value="actingRoleLabel" readonly />
         </NFormItem>
-        <NFormItem label="Комментарий">
-          <NInput v-model:value="decisionComment" type="textarea" :rows="4" />
+        <NFormItem :label="decisionKind === 'approve' ? 'Комментарий (необязательно)' : 'Комментарий'">
+          <NInput v-model:value="decisionComment" type="textarea" :rows="4" placeholder="Комментарий к решению" />
         </NFormItem>
         <NSpace justify="end">
           <NButton @click="decisionModalOpen = false">Отмена</NButton>

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Tnsu.Inventory.Application.Common;
 using Tnsu.Inventory.Application.Common.Exceptions;
 using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Application.DefectActs.Commands;
@@ -23,6 +24,14 @@ public sealed class CreatePurchaseRequestHandler(IInventoryDbContext db, ICurren
             throw new ForbiddenException("Создавать заявку может только механик участка.");
 
         var req = cmd.Request;
+        if (req.DefectActId is Guid defectActId)
+        {
+            var exists = await db.PurchaseRequests.AnyAsync(
+                r => r.DefectActId == defectActId && r.Status != WorkflowStatus.Cancelled, ct);
+            if (exists)
+                throw new ConflictException("purchase_exists", "По этому дефектному акту уже есть заявка на закуп.");
+        }
+
         var number = await NextNumberAsync(db, ct);
 
         var request = new PurchaseRequest
@@ -40,20 +49,26 @@ public sealed class CreatePurchaseRequestHandler(IInventoryDbContext db, ICurren
             VinCode = req.VinCode.Trim(),
             VehicleYear = req.VehicleYear,
             RepairType = RepairType.Normalize(req.RepairType),
+            RepairCategory = RepairCategory.Normalize(req.RepairCategory),
+            Odometer = req.Odometer,
+            EngineHours = req.EngineHours,
             Description = req.Description.Trim(),
             DeliveryDate = req.DeliveryDate ?? DefaultDeliveryDate()
         };
 
-        request.Lines = req.Lines.Select(l => MapLine(number, request.Id, l)).ToList();
-        request.EstimatedAmount = request.Lines.Sum(l => l.EstimatedAmount ?? 0);
+        request.Lines = req.Lines.Where(l => !l.IsRemoved).Select(l => MapLine(number, request.Id, l)).ToList();
+        request.EstimatedAmount = request.Lines.Where(l => !l.IsRemoved).Sum(l => l.EstimatedAmount ?? 0);
 
         db.PurchaseRequests.Add(request);
+        await DocumentChangeWriter.AddAsync(
+            db, currentUser, DocumentTypes.PurchaseRequest, request.Id,
+            "created", "Заявка создана", ct);
         await db.SaveChangesAsync(ct);
 
         return await PurchaseRequestMapper.ToDtoAsync(db, request.Id, currentUser, ct);
     }
 
-    private static DateOnly DefaultDeliveryDate() =>
+    internal static DateOnly DefaultDeliveryDate() =>
         DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30));
 
     private static async Task<string> NextNumberAsync(IInventoryDbContext db, CancellationToken ct)
@@ -63,7 +78,7 @@ public sealed class CreatePurchaseRequestHandler(IInventoryDbContext db, ICurren
         return $"PR-{year}-{(count + 1):D5}";
     }
 
-    private static PurchaseRequestLine MapLine(string requestNumber, Guid requestId, PurchaseRequestLineInput l)
+    internal static PurchaseRequestLine MapLine(string requestNumber, Guid requestId, PurchaseRequestLineInput l)
     {
         var amount = l.EstimatedUnitPrice.HasValue ? l.EstimatedUnitPrice.Value * l.Quantity : (decimal?)null;
         return new PurchaseRequestLine
@@ -72,12 +87,15 @@ public sealed class CreatePurchaseRequestHandler(IInventoryDbContext db, ICurren
             LineNo = l.LineNo,
             Code = $"{requestNumber}-{l.LineNo:D2}",
             Name = l.Name.Trim(),
-            CatalogNumber = l.CatalogNumber?.Trim(),
+            CatalogNumber = PartFieldRules.CatalogNumber(l.CatalogNumber),
             Quantity = l.Quantity,
-            Unit = l.Unit?.Trim(),
+            Unit = PartFieldRules.Unit(l.Unit),
             EstimatedUnitPrice = l.EstimatedUnitPrice,
             EstimatedAmount = amount,
-            Notes = l.Notes?.Trim()
+            Notes = l.Notes?.Trim(),
+            SourceDefectActPartId = l.SourceDefectActPartId,
+            MaxQuantity = l.SourceDefectActPartId is null ? null : l.Quantity,
+            IsRemoved = l.IsRemoved
         };
     }
 }
@@ -97,32 +115,15 @@ public sealed class UpdatePurchaseRequestHandler(IInventoryDbContext db, ICurren
 
         EnsureEditable(request, currentUser);
 
-        request.RepairType = RepairType.Normalize(cmd.Request.RepairType);
-        request.Description = cmd.Request.Description.Trim();
-        request.DeliveryDate = cmd.Request.DeliveryDate ?? request.DeliveryDate ?? DefaultDeliveryDate();
-        request.UpdatedAt = DateTimeOffset.UtcNow;
-        db.PurchaseRequestLines.RemoveRange(request.Lines);
-        request.Lines = cmd.Request.Lines.Select(l =>
-        {
-            var line = new PurchaseRequestLine
-            {
-                PurchaseRequestId = request.Id,
-                LineNo = l.LineNo,
-                Code = $"{request.Number}-{l.LineNo:D2}",
-                Name = l.Name.Trim(),
-                CatalogNumber = l.CatalogNumber?.Trim(),
-                Quantity = l.Quantity,
-                Unit = l.Unit?.Trim(),
-                EstimatedUnitPrice = l.EstimatedUnitPrice,
-                EstimatedAmount = l.EstimatedUnitPrice.HasValue
-                    ? l.EstimatedUnitPrice.Value * l.Quantity
-                    : null,
-                Notes = l.Notes?.Trim()
-            };
-            return line;
-        }).ToList();
-        request.EstimatedAmount = request.Lines.Sum(x => x.EstimatedAmount ?? 0);
+        if (request.DefectActId is not null)
+            ApplyDefectLinkedUpdate(request, cmd.Request);
+        else
+            ApplyFreeUpdate(db, request, cmd.Request);
 
+        request.UpdatedAt = DateTimeOffset.UtcNow;
+        await DocumentChangeWriter.AddAsync(
+            db, currentUser, DocumentTypes.PurchaseRequest, request.Id,
+            "updated", BuildUpdateSummary(request), ct);
         await db.SaveChangesAsync(ct);
         return await PurchaseRequestMapper.ToDtoAsync(db, request.Id, currentUser, ct);
     }
@@ -135,6 +136,88 @@ public sealed class UpdatePurchaseRequestHandler(IInventoryDbContext db, ICurren
 
         if (currentUser.UserId != request.CreatedByUserId)
             throw new ForbiddenException("Редактировать может только автор.");
+    }
+
+    private static void ApplyDefectLinkedUpdate(PurchaseRequest request, UpdatePurchaseRequestRequest body)
+    {
+        var incoming = body.Lines ?? [];
+        if (incoming.Any(l => l.Id is null && l.SourceDefectActPartId is null))
+            throw new ValidationFailedException("В заявке из дефектного акта нельзя добавлять новые позиции.");
+
+        foreach (var line in request.Lines)
+        {
+            var input = incoming.FirstOrDefault(l =>
+                (l.Id is not null && l.Id == line.Id)
+                || (l.SourceDefectActPartId is not null && l.SourceDefectActPartId == line.SourceDefectActPartId)
+                || (l.Id is null && l.SourceDefectActPartId is null && l.LineNo == line.LineNo));
+
+            line.MaxQuantity ??= line.Quantity;
+            if (input is null || input.IsRemoved)
+            {
+                if (!line.IsRemoved)
+                {
+                    line.IsRemoved = true;
+                    line.RemovedAt = DateTimeOffset.UtcNow;
+                }
+                continue;
+            }
+
+            var incomingCatalog = PartFieldRules.CatalogNumber(input.CatalogNumber);
+            var storedCatalog = string.IsNullOrWhiteSpace(line.CatalogNumber) ? null : line.CatalogNumber.Trim();
+            if (!string.Equals(input.Name.Trim(), line.Name.Trim(), StringComparison.Ordinal)
+                || !string.Equals(incomingCatalog, storedCatalog, StringComparison.Ordinal)
+                || !string.Equals(PartFieldRules.Unit(input.Unit), MeasurementUnits.Normalize(line.Unit), StringComparison.Ordinal))
+                throw new ValidationFailedException($"В заявке из дефектного акта можно менять только количество («{line.Name}»).");
+
+            if (input.Quantity <= 0)
+                throw new ValidationFailedException($"Количество «{line.Name}» должно быть больше нуля. Чтобы убрать позицию, удалите её.");
+
+            if (input.Quantity > line.MaxQuantity)
+                throw new ValidationFailedException(
+                    $"Количество «{line.Name}» нельзя увеличить выше {line.MaxQuantity} из дефектного акта.");
+
+            line.IsRemoved = false;
+            line.RemovedAt = null;
+            line.Quantity = input.Quantity;
+            line.EstimatedAmount = line.EstimatedUnitPrice.HasValue
+                ? line.EstimatedUnitPrice.Value * input.Quantity
+                : null;
+        }
+
+        if (!request.Lines.Any(l => !l.IsRemoved))
+            throw new ValidationFailedException("В заявке должна остаться хотя бы одна позиция.");
+
+        request.EstimatedAmount = request.Lines.Where(l => !l.IsRemoved).Sum(x => x.EstimatedAmount ?? 0);
+    }
+
+    private static void ApplyFreeUpdate(
+        IInventoryDbContext db, PurchaseRequest request, UpdatePurchaseRequestRequest body)
+    {
+        request.RepairType = RepairType.Normalize(body.RepairType);
+        request.RepairCategory = RepairCategory.Normalize(body.RepairCategory);
+        request.Odometer = body.Odometer;
+        request.EngineHours = body.EngineHours;
+        request.Description = body.Description.Trim();
+        request.DeliveryDate = body.DeliveryDate ?? request.DeliveryDate ?? CreatePurchaseRequestHandler.DefaultDeliveryDate();
+
+        foreach (var existing in request.Lines.ToList())
+            db.PurchaseRequestLines.Remove(existing);
+        request.Lines.Clear();
+        var lineNo = 1;
+        foreach (var l in body.Lines.Where(x => !x.IsRemoved))
+        {
+            request.Lines.Add(CreatePurchaseRequestHandler.MapLine(request.Number, request.Id, l with { LineNo = lineNo++ }));
+        }
+        request.EstimatedAmount = request.Lines.Sum(x => x.EstimatedAmount ?? 0);
+    }
+
+    private static string BuildUpdateSummary(PurchaseRequest request)
+    {
+        var active = request.Lines.Count(l => !l.IsRemoved);
+        var removed = request.Lines.Count(l => l.IsRemoved);
+        return removed > 0
+            ? $"Сохранены изменения: позиций {active}, исключено {removed}."
+            : $"Сохранены изменения: позиций {active}.";
     }
 }
 
@@ -155,7 +238,7 @@ public sealed class SubmitPurchaseRequestHandler(
 
         UpdatePurchaseRequestHandler.EnsureEditable(request, currentUser);
 
-        if (request.Lines.Count == 0)
+        if (!request.Lines.Any(l => !l.IsRemoved))
             throw new ValidationFailedException("Добавьте хотя бы одну позицию.");
 
         var hasPending = await db.ApprovalSteps.AnyAsync(
@@ -197,6 +280,14 @@ public sealed class SubmitPurchaseRequestHandler(
         }
         request.UpdatedAt = DateTimeOffset.UtcNow;
         db.ApprovalSteps.AddRange(steps);
+        var launches = await db.ApprovalSteps.AsNoTracking()
+            .Where(s => s.PurchaseRequestId == request.Id)
+            .Select(s => s.RoundId)
+            .Distinct()
+            .CountAsync(ct);
+        await DocumentChangeWriter.AddAsync(
+            db, currentUser, DocumentTypes.PurchaseRequest, request.Id,
+            "submitted", $"Отправлена на согласование, запуск {launches + 1}", ct);
         await db.SaveChangesAsync(ct);
 
         var firstPendingStep = steps.FirstOrDefault(s => s.Status == ApprovalStepStatus.Pending);
@@ -221,12 +312,20 @@ public sealed class CancelPurchaseRequestHandler(IInventoryDbContext db, ICurren
         var request = await db.PurchaseRequests.FirstOrDefaultAsync(r => r.Id == cmd.Id, ct)
             ?? throw new NotFoundException("PurchaseRequest", cmd.Id);
 
-        if (currentUser.UserId != request.CreatedByUserId)
-            throw new ForbiddenException("Отменить может только инициатор.");
+        var isInitiator = currentUser.UserId == request.CreatedByUserId;
+        var isPlanner = currentUser.Role == MechanizationRole.MaintenancePlanner;
+        if (!isInitiator && !isPlanner)
+            throw new ForbiddenException("Аннулировать может инициатор или инженер по планированию ТОиР.");
+
+        if (request.Status is WorkflowStatus.Cancelled or WorkflowStatus.Closed)
+            throw new ConflictException("not_cancellable", "Заявку в этом статусе аннулировать нельзя.");
 
         request.Status = WorkflowStatus.Cancelled;
         request.CancelComment = cmd.Comment.Trim();
         request.UpdatedAt = DateTimeOffset.UtcNow;
+        await DocumentChangeWriter.AddAsync(
+            db, currentUser, DocumentTypes.PurchaseRequest, request.Id,
+            "cancelled", $"Аннулирована. {request.CancelComment}", ct);
         await db.SaveChangesAsync(ct);
 
         return await PurchaseRequestMapper.ToDtoAsync(db, request.Id, currentUser, ct);

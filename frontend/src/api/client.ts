@@ -120,6 +120,19 @@ apiClient.interceptors.response.use(
   }
 );
 
+export async function openAttachment(id: string, fileName: string) {
+  const { data } = await apiClient.get<Blob>(`/api/attachments/${id}`, { responseType: 'blob' });
+  const url = URL.createObjectURL(data);
+  const win = window.open(url, '_blank');
+  if (!win) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export async function openPrintDocument(path: string) {
   const { data } = await apiClient.get<string>(path, { responseType: 'text' });
   const blob = new Blob([data], { type: 'text/html;charset=utf-8' });

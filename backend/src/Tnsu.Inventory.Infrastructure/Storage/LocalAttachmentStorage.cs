@@ -18,8 +18,24 @@ public sealed class LocalAttachmentStorage(IOptions<AppOptions> options) : IAtta
 
     public Task<Stream> OpenReadAsync(string storagePath, CancellationToken ct)
     {
-        var path = Path.Combine(options.Value.AttachmentStoragePath, storagePath);
-        Stream stream = File.OpenRead(path);
-        return Task.FromResult(stream);
+        var root = options.Value.AttachmentStoragePath;
+        var direct = Path.GetFullPath(Path.Combine(root, storagePath));
+        var rootFull = Path.GetFullPath(root);
+        if (!direct.StartsWith(rootFull, StringComparison.Ordinal))
+            throw new FileNotFoundException("Вложение не найдено.", storagePath);
+
+        if (File.Exists(direct))
+            return Task.FromResult<Stream>(File.OpenRead(direct));
+
+        var fileName = Path.GetFileName(storagePath);
+        if (!string.IsNullOrEmpty(fileName) && Directory.Exists(rootFull))
+        {
+            var match = Directory.EnumerateFiles(rootFull, "*" + fileName, SearchOption.AllDirectories)
+                .FirstOrDefault(path => Path.GetFullPath(path).StartsWith(rootFull, StringComparison.Ordinal));
+            if (match is not null)
+                return Task.FromResult<Stream>(File.OpenRead(match));
+        }
+
+        throw new FileNotFoundException("Вложение не найдено.", storagePath);
     }
 }

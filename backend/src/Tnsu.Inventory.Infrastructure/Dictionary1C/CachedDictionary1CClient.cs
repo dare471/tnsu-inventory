@@ -41,6 +41,12 @@ public sealed class CachedDictionary1CClient(DictionaryDataCache cache) : IDicti
             (sp, c) => sp.GetRequiredService<HttpDictionary1CClient>().GetContractorsAsync(search, c),
             ct);
 
+    public Task<IReadOnlyList<StockBalanceDto>> GetStockBalancesAsync(string? search, CancellationToken ct) =>
+        cache.GetOrLoadAsync(
+            $"1c:stock:{NormalizeKey(search)}",
+            (sp, c) => sp.GetRequiredService<HttpDictionary1CClient>().GetStockBalancesAsync(search, c),
+            ct);
+
     private static string NormalizeKey(string? search) =>
         (search ?? string.Empty).Trim().ToLowerInvariant();
 }

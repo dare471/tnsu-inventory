@@ -17,6 +17,9 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
     public DbSet<DocumentApprovalAssignee> DocumentApprovalAssignees => Set<DocumentApprovalAssignee>();
     public DbSet<DocumentAttachment> Attachments => Set<DocumentAttachment>();
     public DbSet<SupplierOrder> SupplierOrders => Set<SupplierOrder>();
+    public DbSet<DocumentChangeEntry> DocumentChanges => Set<DocumentChangeEntry>();
+    public DbSet<MaterialTransferRequest> MaterialTransfers => Set<MaterialTransferRequest>();
+    public DbSet<MaterialTransferLine> MaterialTransferLines => Set<MaterialTransferLine>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,6 +41,10 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
             e.HasKey(x => x.Id);
             e.Property(x => x.Number).HasMaxLength(32).IsRequired();
             e.HasIndex(x => x.Number).IsUnique();
+            e.Property(x => x.RepairType).HasMaxLength(32);
+            e.Property(x => x.RepairCategory).HasMaxLength(32);
+            e.Property(x => x.Odometer).HasPrecision(14, 2);
+            e.Property(x => x.EngineHours).HasPrecision(14, 2);
             e.HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedByUserId);
         });
 
@@ -45,6 +52,9 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
         {
             e.ToTable("defect_act_parts");
             e.HasKey(x => x.Id);
+            e.Property(x => x.CatalogNumber).HasMaxLength(50);
+            e.Property(x => x.Unit).HasMaxLength(32);
+            e.Property(x => x.ActualStockQuantity).HasPrecision(18, 3);
             e.HasOne(x => x.DefectAct).WithMany(x => x.Parts).HasForeignKey(x => x.DefectActId);
         });
 
@@ -54,6 +64,10 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
             e.HasKey(x => x.Id);
             e.Property(x => x.Number).HasMaxLength(32).IsRequired();
             e.HasIndex(x => x.Number).IsUnique();
+            e.Property(x => x.RepairType).HasMaxLength(32);
+            e.Property(x => x.RepairCategory).HasMaxLength(32);
+            e.Property(x => x.Odometer).HasPrecision(14, 2);
+            e.Property(x => x.EngineHours).HasPrecision(14, 2);
             e.HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedByUserId);
             e.HasOne(x => x.AssignedExecutor).WithMany().HasForeignKey(x => x.AssignedExecutorUserId);
             e.HasOne(x => x.DefectAct).WithMany().HasForeignKey(x => x.DefectActId);
@@ -63,6 +77,9 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
         {
             e.ToTable("purchase_request_lines");
             e.HasKey(x => x.Id);
+            e.Property(x => x.CatalogNumber).HasMaxLength(50);
+            e.Property(x => x.Unit).HasMaxLength(32);
+            e.Property(x => x.MaxQuantity).HasPrecision(18, 3);
             e.HasOne(x => x.PurchaseRequest).WithMany(x => x.Lines).HasForeignKey(x => x.PurchaseRequestId);
         });
 
@@ -117,6 +134,39 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
             e.HasIndex(x => x.PurchaseRequestId).IsUnique();
             e.HasOne(x => x.PurchaseRequest).WithMany().HasForeignKey(x => x.PurchaseRequestId);
             e.HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedByUserId);
+        });
+
+        modelBuilder.Entity<DocumentChangeEntry>(e =>
+        {
+            e.ToTable("document_changes");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.DocumentType).HasMaxLength(64).IsRequired();
+            e.Property(x => x.UserFullName).HasMaxLength(256);
+            e.Property(x => x.Action).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Summary).HasMaxLength(2000);
+            e.HasIndex(x => new { x.DocumentType, x.DocumentId, x.CreatedAt });
+        });
+
+        modelBuilder.Entity<MaterialTransferRequest>(e =>
+        {
+            e.ToTable("material_transfers");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Number).HasMaxLength(32).IsRequired();
+            e.HasIndex(x => x.Number).IsUnique();
+            e.Property(x => x.Status).HasMaxLength(32);
+            e.Property(x => x.SourceWarehouse).HasMaxLength(256);
+            e.Property(x => x.Destination).HasMaxLength(256);
+            e.HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedByUserId);
+        });
+
+        modelBuilder.Entity<MaterialTransferLine>(e =>
+        {
+            e.ToTable("material_transfer_lines");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.CatalogNumber).HasMaxLength(50);
+            e.Property(x => x.Unit).HasMaxLength(32);
+            e.Property(x => x.AvailableQuantity).HasPrecision(18, 3);
+            e.HasOne(x => x.TransferRequest).WithMany(x => x.Lines).HasForeignKey(x => x.TransferRequestId);
         });
     }
 }

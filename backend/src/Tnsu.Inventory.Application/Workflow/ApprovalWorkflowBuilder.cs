@@ -18,14 +18,14 @@ public static class ApprovalWorkflowBuilder
         CancellationToken ct)
     {
         var approvers = await ResolveRoleApproversAsync(
-            db, MechanizationRole.PurchaseApprovalRoles, act.ProjectId, documentOverrides, ct);
+            db, MechanizationRole.DefectActApprovalRoles, act.ProjectId, documentOverrides, ct);
 
         var steps = new List<ApprovalStep>();
         var order = 1;
         var now = DateTimeOffset.UtcNow;
         var firstPendingAssigned = false;
 
-        foreach (var role in MechanizationRole.PurchaseApprovalRoles)
+        foreach (var role in MechanizationRole.DefectActApprovalRoles)
         {
             if (order < startFromOrder)
             {

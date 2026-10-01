@@ -3,12 +3,13 @@ import { computed, h, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   NCard, NFormItem, NSelect, NInput, NInputNumber, NButton, NAlert, NSpace,
-  NDataTable, NDatePicker, NRadioGroup, NRadio, type DataTableColumns
+  NDataTable, NDatePicker, NRadioGroup, NRadio, NAutoComplete, type DataTableColumns
 } from 'naive-ui';
 import {
   inventoryApi, type ProjectDto, type VehicleDto, type PurchaseRequestLineInput
 } from '@/api/inventory';
 import { toApiError } from '@/api/client';
+import { repairCategoryOptions, repairTypeOptions, unitOptions } from '@/config/units';
 import SparePartNameField from '@/components/SparePartNameField.vue';
 
 const router = useRouter();
@@ -30,12 +31,9 @@ const stateNumber = ref('');
 const vinCode = ref('');
 const vehicleYear = ref<number | null>(null);
 const repairType = ref('planned');
+const repairCategory = ref('current');
 const description = ref('');
 const deliveryDate = ref<number | null>(null);
-const repairTypeOptions = [
-  { label: 'Плановый ремонт', value: 'planned' },
-  { label: 'Аварийный ремонт', value: 'emergency' }
-];
 
 function defaultDeliveryTimestamp() {
   const d = new Date();
@@ -52,7 +50,7 @@ function formatDateOnly(ts: number | null): string | undefined {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-const lines = ref<PurchaseRequestLineInput[]>([{ lineNo: 1, name: '', quantity: 1, unit: 'шт' }]);
+const lines = ref<PurchaseRequestLineInput[]>([{ lineNo: 1, name: '', quantity: 1, unit: 'шт.' }]);
 
 const projectOptions = computed(() =>
   projects.value.map((p) => ({ label: `${p.code} — ${p.projectName}`, value: p.id }))
@@ -78,11 +76,12 @@ const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
     })
   },
   {
-    title: 'Кат. №',
+    title: 'Партномер',
     key: 'catalogNumber',
     render: (row, index) => h(NInput, {
       value: row.catalogNumber ?? '',
-      onUpdateValue: (v: string) => { lines.value[index].catalogNumber = v; }
+      maxlength: 50,
+      onUpdateValue: (v: string) => { lines.value[index].catalogNumber = v.slice(0, 50); }
     })
   },
   {
@@ -99,8 +98,9 @@ const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
     title: 'Ед.',
     key: 'unit',
     width: 80,
-    render: (row, index) => h(NInput, {
+    render: (row, index) => h(NAutoComplete, {
       value: row.unit ?? '',
+      options: unitOptions.map((o) => o.value),
       onUpdateValue: (v: string) => { lines.value[index].unit = v; }
     })
   },
@@ -148,7 +148,7 @@ function onVehicleChange(v: string) {
 }
 
 function addLine() {
-  lines.value.push({ lineNo: lines.value.length + 1, name: '', quantity: 1, unit: 'шт' });
+  lines.value.push({ lineNo: lines.value.length + 1, name: '', quantity: 1, unit: 'шт.' });
 }
 
 function removeLine(idx: number) {
@@ -185,6 +185,7 @@ async function save() {
       vinCode: vinCode.value,
       vehicleYear: vehicleYear.value ?? undefined,
       repairType: repairType.value,
+      repairCategory: repairCategory.value,
       description: description.value.trim(),
       deliveryDate: formatDateOnly(deliveryDate.value),
       lines: lines.value.filter((l) => l.name.trim())
@@ -232,10 +233,10 @@ async function save() {
         <NFormItem label="VIN">
           <NInput v-model:value="vinCode" readonly />
         </NFormItem>
-        <NFormItem label="Год">
+        <NFormItem label="Год выпуска">
           <NInputNumber v-model:value="vehicleYear" style="width:100%" />
         </NFormItem>
-        <NFormItem label="Группа">
+        <NFormItem label="Подразделение МОЛ">
           <NInput v-model:value="vehicleGroupName" readonly />
         </NFormItem>
       </div>
@@ -244,6 +245,14 @@ async function save() {
         <NRadioGroup v-model:value="repairType">
           <NSpace>
             <NRadio v-for="opt in repairTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</NRadio>
+          </NSpace>
+        </NRadioGroup>
+      </NFormItem>
+
+      <NFormItem label="Капитальный / текущий ремонт">
+        <NRadioGroup v-model:value="repairCategory">
+          <NSpace>
+            <NRadio v-for="opt in repairCategoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</NRadio>
           </NSpace>
         </NRadioGroup>
       </NFormItem>

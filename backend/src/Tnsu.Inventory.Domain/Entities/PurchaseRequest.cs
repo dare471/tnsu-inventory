@@ -16,6 +16,9 @@ public class PurchaseRequest
     public string VinCode { get; set; } = string.Empty;
     public int? VehicleYear { get; set; }
     public string RepairType { get; set; } = Enums.RepairType.Planned;
+    public string RepairCategory { get; set; } = Enums.RepairCategory.Current;
+    public decimal? Odometer { get; set; }
+    public decimal? EngineHours { get; set; }
     public string Description { get; set; } = string.Empty;
     public DateOnly? DeliveryDate { get; set; }
     public decimal EstimatedAmount { get; set; }

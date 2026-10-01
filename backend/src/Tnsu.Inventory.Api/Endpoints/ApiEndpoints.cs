@@ -10,6 +10,7 @@ using Tnsu.Inventory.Application.Dictionaries.Queries;
 using Tnsu.Inventory.Application.Procurement;
 using Tnsu.Inventory.Application.PurchaseRequests;
 using Tnsu.Inventory.Application.PurchaseRequests.Commands;
+using Tnsu.Inventory.Application.Transfers;
 using Tnsu.Inventory.Domain;
 using Tnsu.Inventory.Domain.Enums;
 using Tnsu.Inventory.Infrastructure.Persistence;
@@ -69,6 +70,8 @@ public static class ApiEndpoints
         });
         defects.MapPut("/{id:guid}", async (Guid id, [FromBody] UpdateDefectActRequest body, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new UpdateDefectActCommand(id, body), ct)));
+        defects.MapPut("/{id:guid}/stock", async (Guid id, [FromBody] UpdateDefectActStockRequest body, IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new UpdateDefectActStockCommand(id, body), ct)));
         defects.MapPost("/{id:guid}/submit", async (Guid id, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new SubmitDefectActCommand(id), ct)));
         defects.MapPost("/{id:guid}/cancel", async (Guid id, [FromBody] CancelRequest body, IMediator m, CancellationToken ct) =>
@@ -132,6 +135,8 @@ public static class ApiEndpoints
         });
         purchases.MapGet("/{id:guid}/approvals", async (Guid id, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new GetPurchaseRequestApprovalsQuery(id), ct)));
+        purchases.MapGet("/{id:guid}/changes", async (Guid id, IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new GetPurchaseRequestChangesQuery(id), ct)));
         purchases.MapGet("/{id:guid}/attachments", async (Guid id, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new ListPurchaseAttachmentsQuery(id), ct)));
         purchases.MapPost("/{id:guid}/attachments", async (
@@ -160,6 +165,24 @@ public static class ApiEndpoints
             Results.Ok(await m.Send(new CreateSupplierOrderCommand(id), ct)));
         purchases.MapGet("/{id:guid}/supplier-order", async (Guid id, IMediator m, CancellationToken ct) =>
             Results.Ok(await m.Send(new GetSupplierOrderByPurchaseQuery(id), ct)));
+
+        api.MapGet("/dictionaries/stock-balances", async ([FromQuery] string? search, IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new ListStockBalancesQuery(search), ct)));
+
+        var transfers = api.MapGroup("/material-transfers");
+        transfers.MapGet("", async (IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new ListMaterialTransfersQuery(), ct)));
+        transfers.MapPost("", async ([FromBody] CreateMaterialTransferRequest body, IMediator m, CancellationToken ct) =>
+        {
+            var dto = await m.Send(new CreateMaterialTransferCommand(body), ct);
+            return Results.Created($"/api/material-transfers/{dto.Id}", dto);
+        });
+        transfers.MapGet("/{id:guid}", async (Guid id, IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new GetMaterialTransferQuery(id), ct)));
+        transfers.MapPut("/{id:guid}", async (Guid id, [FromBody] UpdateMaterialTransferRequest body, IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new UpdateMaterialTransferCommand(id, body), ct)));
+        transfers.MapPost("/{id:guid}/submit", async (Guid id, IMediator m, CancellationToken ct) =>
+            Results.Ok(await m.Send(new SubmitMaterialTransferCommand(id), ct)));
 
         api.MapGet("/attachments/{id:guid}", async (Guid id, IMediator m, CancellationToken ct) =>
         {
@@ -567,7 +590,7 @@ public static class ApiEndpoints
                 status = doc.Status;
             }
 
-            var roles = MechanizationRole.PurchaseApprovalRoles;
+            var roles = MechanizationRole.ApprovalRolesFor(documentType);
             var users = await db.Users
                 .AsNoTracking()
                 .Where(u => u.IsActive)
@@ -614,7 +637,7 @@ public static class ApiEndpoints
             if (!IsAdminRole(current.Role)) return Results.Forbid();
             if (documentType is not DocumentTypes.DefectAct and not DocumentTypes.PurchaseRequest)
                 return Results.BadRequest(new { message = "Неподдерживаемый тип документа." });
-            var allowedRoles = MechanizationRole.PurchaseApprovalRoles.ToHashSet();
+            var allowedRoles = MechanizationRole.ApprovalRolesFor(documentType).ToHashSet();
             if (body.Assignments.Any(a => !allowedRoles.Contains(a.Role)))
                 return Results.BadRequest(new { message = "Передана неподдерживаемая роль." });
 

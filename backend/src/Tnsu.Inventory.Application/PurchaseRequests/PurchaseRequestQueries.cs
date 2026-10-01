@@ -4,6 +4,8 @@ using Tnsu.Inventory.Application.Common;
 using Tnsu.Inventory.Application.Common.Exceptions;
 using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Application.DefectActs;
+using Tnsu.Inventory.Application.Workflow;
+using Tnsu.Inventory.Domain;
 using Tnsu.Inventory.Domain.Enums;
 
 namespace Tnsu.Inventory.Application.PurchaseRequests;
@@ -22,11 +24,11 @@ internal static class PurchaseRequestMapper
 
         var canEdit = request.Status is WorkflowStatus.Draft or WorkflowStatus.Returned
                       && currentUser.UserId == request.CreatedByUserId;
-        var canSubmit = canEdit && request.Lines.Count > 0;
-        var canCancel = currentUser.UserId == request.CreatedByUserId
+        var canSubmit = canEdit && request.Lines.Any(l => !l.IsRemoved);
+        var canCancel = (currentUser.UserId == request.CreatedByUserId
+                         || currentUser.Role == MechanizationRole.MaintenancePlanner)
                         && request.Status is not WorkflowStatus.Closed
-                            and not WorkflowStatus.Cancelled
-                            and not WorkflowStatus.Rejected;
+                            and not WorkflowStatus.Cancelled;
         var canDelete = request.Status == WorkflowStatus.Draft
                         && currentUser.UserId == request.CreatedByUserId;
         var canAssignExecutor = request.Status == WorkflowStatus.Approved
@@ -55,6 +57,10 @@ internal static class PurchaseRequestMapper
             request.VehicleYear,
             request.RepairType,
             RepairType.Label(request.RepairType),
+            request.RepairCategory,
+            RepairCategory.Label(request.RepairCategory),
+            request.Odometer,
+            request.EngineHours,
             request.Description,
             request.EstimatedAmount,
             request.HasServiceNoteAttachment,
@@ -64,14 +70,16 @@ internal static class PurchaseRequestMapper
             request.DeliveryDate,
             request.Lines.OrderBy(l => l.LineNo).Select(l => new PurchaseRequestLineDto(
                 l.Id, l.LineNo, l.Code, l.Name, l.CatalogNumber, l.Quantity, l.Unit,
-                l.EstimatedUnitPrice, l.EstimatedAmount, l.Notes)).ToList(),
+                l.EstimatedUnitPrice, l.EstimatedAmount, l.Notes,
+                l.SourceDefectActPartId, l.MaxQuantity ?? l.Quantity, l.IsRemoved)).ToList(),
             canEdit,
             canSubmit,
             canCancel,
             canDelete,
             canAssignExecutor,
             canStartExecution,
-            canClose);
+            canClose,
+            request.DefectActId is not null);
     }
 }
 
@@ -170,14 +178,29 @@ public sealed class GetPurchaseRequestApprovalsHandler(IInventoryDbContext db)
     public async Task<IReadOnlyList<ApprovalStepDto>> Handle(
         GetPurchaseRequestApprovalsQuery q, CancellationToken ct)
     {
-        return await db.ApprovalSteps.AsNoTracking()
+        var steps = await db.ApprovalSteps.AsNoTracking()
             .Include(s => s.Approver)
             .Where(s => s.PurchaseRequestId == q.Id)
-            .OrderBy(s => s.OrderNo)
-            .Select(s => new ApprovalStepDto(
-                s.Id, s.OrderNo, s.ApproverRole, MechanizationRole.Label(s.ApproverRole),
-                s.Approver!.FullName, s.Status, ApprovalStepStatus.Label(s.Status), s.Action, s.Comment,
-                s.RequiresDigitalSignature, s.AssignedAt, s.DecidedAt, s.DecidedAt ?? s.AssignedAt))
+            .ToListAsync(ct);
+        return ApprovalRoundMapper.ToDtos(steps);
+    }
+}
+
+public sealed record GetPurchaseRequestChangesQuery(Guid Id) : IRequest<IReadOnlyList<DocumentChangeDto>>;
+
+public sealed class GetPurchaseRequestChangesHandler(IInventoryDbContext db)
+    : IRequestHandler<GetPurchaseRequestChangesQuery, IReadOnlyList<DocumentChangeDto>>
+{
+    public async Task<IReadOnlyList<DocumentChangeDto>> Handle(GetPurchaseRequestChangesQuery q, CancellationToken ct)
+    {
+        var exists = await db.PurchaseRequests.AsNoTracking().AnyAsync(r => r.Id == q.Id, ct);
+        if (!exists)
+            throw new NotFoundException("PurchaseRequest", q.Id);
+
+        return await db.DocumentChanges.AsNoTracking()
+            .Where(c => c.DocumentType == DocumentTypes.PurchaseRequest && c.DocumentId == q.Id)
+            .OrderBy(c => c.CreatedAt)
+            .Select(c => new DocumentChangeDto(c.Id, c.Action, c.Summary, c.UserFullName, c.CreatedAt))
             .ToListAsync(ct);
     }
 }

@@ -57,10 +57,11 @@ public sealed class SharePointAttachmentStorage(
             }
 
             var body = await response.Content.ReadFromJsonAsync<DriveItemResponse>(ct);
-            _urlByPath[safeName] = body?.WebUrl ?? cfg.SiteUrl;
             ms.Position = 0;
-            await localFallback.SaveAsync(ms, safeName, ct);
-            return safeName;
+            var localPath = await localFallback.SaveAsync(ms, Path.GetFileName(fileName), ct);
+            if (!string.IsNullOrWhiteSpace(body?.WebUrl))
+                _urlByPath[localPath] = body.WebUrl;
+            return localPath;
         }
         catch (Exception ex)
         {

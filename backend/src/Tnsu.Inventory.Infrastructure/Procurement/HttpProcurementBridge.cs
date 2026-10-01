@@ -28,7 +28,7 @@ public sealed class HttpProcurementBridge(
                 projectId = request.ProjectId,
                 projectCode = request.ProjectCode,
                 estimatedAmount = request.EstimatedAmount,
-                lines = request.Lines.Select(l => new
+                lines = request.Lines.Where(l => !l.IsRemoved).Select(l => new
                 {
                     l.LineNo, l.Name, l.CatalogNumber, l.Quantity, l.Unit,
                     l.EstimatedUnitPrice, l.EstimatedAmount

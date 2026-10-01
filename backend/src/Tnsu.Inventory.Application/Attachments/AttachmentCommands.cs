@@ -170,7 +170,14 @@ public sealed class DownloadAttachmentHandler(IInventoryDbContext db, IAttachmen
         var att = await db.Attachments.AsNoTracking().FirstOrDefaultAsync(a => a.Id == q.Id, ct)
             ?? throw new NotFoundException("Attachment", q.Id);
 
-        var stream = await storage.OpenReadAsync(att.StoragePath, ct);
-        return (stream, att.FileName, att.ContentType);
+        try
+        {
+            var stream = await storage.OpenReadAsync(att.StoragePath, ct);
+            return (stream, att.FileName, att.ContentType);
+        }
+        catch (FileNotFoundException)
+        {
+            throw new NotFoundException("Attachment", q.Id);
+        }
     }
 }

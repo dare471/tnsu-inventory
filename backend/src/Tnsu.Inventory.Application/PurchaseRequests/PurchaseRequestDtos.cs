@@ -7,7 +7,10 @@ public sealed record PurchaseRequestLineInput(
     decimal Quantity,
     string? Unit,
     decimal? EstimatedUnitPrice,
-    string? Notes);
+    string? Notes,
+    Guid? Id = null,
+    Guid? SourceDefectActPartId = null,
+    bool IsRemoved = false);
 
 public sealed record CreatePurchaseRequestRequest(
     Guid? DefectActId,
@@ -21,12 +24,18 @@ public sealed record CreatePurchaseRequestRequest(
     string VinCode,
     int? VehicleYear,
     string RepairType,
+    string RepairCategory,
+    decimal? Odometer,
+    decimal? EngineHours,
     string Description,
     DateOnly? DeliveryDate,
     IReadOnlyList<PurchaseRequestLineInput> Lines);
 
 public sealed record UpdatePurchaseRequestRequest(
     string RepairType,
+    string RepairCategory,
+    decimal? Odometer,
+    decimal? EngineHours,
     string Description,
     DateOnly? DeliveryDate,
     IReadOnlyList<PurchaseRequestLineInput> Lines);
@@ -41,7 +50,10 @@ public sealed record PurchaseRequestLineDto(
     string? Unit,
     decimal? EstimatedUnitPrice,
     decimal? EstimatedAmount,
-    string? Notes);
+    string? Notes,
+    Guid? SourceDefectActPartId,
+    decimal? MaxQuantity,
+    bool IsRemoved);
 
 public sealed record PurchaseRequestDto(
     Guid Id,
@@ -61,6 +73,10 @@ public sealed record PurchaseRequestDto(
     int? VehicleYear,
     string RepairType,
     string RepairTypeLabel,
+    string RepairCategory,
+    string RepairCategoryLabel,
+    decimal? Odometer,
+    decimal? EngineHours,
     string Description,
     decimal EstimatedAmount,
     bool HasServiceNoteAttachment,
@@ -75,7 +91,15 @@ public sealed record PurchaseRequestDto(
     bool CanDelete,
     bool CanAssignExecutor,
     bool CanStartExecution,
-    bool CanClose);
+    bool CanClose,
+    bool LockedToDefectAct);
+
+public sealed record DocumentChangeDto(
+    Guid Id,
+    string Action,
+    string Summary,
+    string UserFullName,
+    DateTimeOffset CreatedAt);
 
 public sealed record PurchaseRequestListItemDto(
     Guid Id,

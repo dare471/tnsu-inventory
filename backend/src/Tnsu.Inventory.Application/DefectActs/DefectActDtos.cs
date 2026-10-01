@@ -6,7 +6,8 @@ public sealed record DefectActPartInput(
     string? CatalogNumber,
     decimal Quantity,
     string? Unit,
-    string? Notes);
+    string? Notes,
+    decimal? ActualStockQuantity = null);
 
 public sealed record CreateDefectActRequest(
     Guid ProjectId,
@@ -19,13 +20,23 @@ public sealed record CreateDefectActRequest(
     string VinCode,
     int? VehicleYear,
     string RepairType,
+    string RepairCategory,
+    decimal? Odometer,
+    decimal? EngineHours,
     string MalfunctionDescription,
     IReadOnlyList<DefectActPartInput> Parts);
 
 public sealed record UpdateDefectActRequest(
     string RepairType,
+    string RepairCategory,
+    decimal? Odometer,
+    decimal? EngineHours,
     string MalfunctionDescription,
     IReadOnlyList<DefectActPartInput> Parts);
+
+public sealed record UpdateDefectActStockLine(Guid PartId, decimal? ActualStockQuantity);
+
+public sealed record UpdateDefectActStockRequest(IReadOnlyList<UpdateDefectActStockLine> Parts);
 
 public sealed record DefectActPartDto(
     Guid Id,
@@ -34,7 +45,8 @@ public sealed record DefectActPartDto(
     string? CatalogNumber,
     decimal Quantity,
     string? Unit,
-    string? Notes);
+    string? Notes,
+    decimal? ActualStockQuantity);
 
 public sealed record DefectActDto(
     Guid Id,
@@ -52,6 +64,10 @@ public sealed record DefectActDto(
     int? VehicleYear,
     string RepairType,
     string RepairTypeLabel,
+    string RepairCategory,
+    string RepairCategoryLabel,
+    decimal? Odometer,
+    decimal? EngineHours,
     string MalfunctionDescription,
     string CreatedByFullName,
     DateTimeOffset CreatedAt,
@@ -60,7 +76,8 @@ public sealed record DefectActDto(
     bool CanEdit,
     bool CanSubmit,
     bool CanCreatePurchaseRequest,
-    bool CanDelete);
+    bool CanDelete,
+    bool CanEditStock);
 
 public sealed record DefectActListItemDto(
     Guid Id,
@@ -87,7 +104,8 @@ public sealed record ApprovalStepDto(
     bool RequiresDigitalSignature,
     DateTimeOffset? AssignedAt,
     DateTimeOffset? DecidedAt,
-    DateTimeOffset? StatusDate);
+    DateTimeOffset? StatusDate,
+    int RoundNo);
 
 public sealed record InboxItemDto(
     Guid StepId,

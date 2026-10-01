@@ -2,15 +2,16 @@
 import { computed, h, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
-  NCard, NButton, NAlert, NSpace, NDataTable, NTag, NUpload, NInput, NFormItem, NModal, NInputNumber, NSelect, NDatePicker, NRadioGroup, NRadio, useMessage,
+  NCard, NButton, NAlert, NSpace, NDataTable, NTag, NUpload, NInput, NFormItem, NModal, NInputNumber, NSelect, NDatePicker, NRadioGroup, NRadio, NAutoComplete, useMessage,
   type DataTableColumns, type UploadFileInfo
 } from 'naive-ui';
 import {
   inventoryApi, type ApprovalStepDto, type AttachmentDto,
   type PurchaseRequestDto, type SupplierOrderDto, type InboxItem, type PurchaseRequestLineInput,
-  type AdminUserOptionDto
+  type AdminUserOptionDto, type DocumentChangeDto
 } from '@/api/inventory';
-import { toApiError } from '@/api/client';
+import { openAttachment, toApiError } from '@/api/client';
+import { repairCategoryOptions, repairTypeOptions, unitOptions } from '@/config/units';
 
 import SparePartNameField from '@/components/SparePartNameField.vue';
 
@@ -20,6 +21,7 @@ const msg = useMessage();
 
 const request = ref<PurchaseRequestDto | null>(null);
 const approvals = ref<ApprovalStepDto[]>([]);
+const changes = ref<DocumentChangeDto[]>([]);
 const attachments = ref<AttachmentDto[]>([]);
 const supplierOrder = ref<SupplierOrderDto | null>(null);
 const inboxItem = ref<InboxItem | null>(null);
@@ -40,12 +42,14 @@ const decisionSubmitting = ref(false);
 const currentApprovalStepId = ref<string | null>(null);
 const description = ref('');
 const repairType = ref('planned');
+const repairCategory = ref('current');
+const odometer = ref<number | null>(null);
+const engineHours = ref<number | null>(null);
 const deliveryDate = ref<number | null>(null);
 const lines = ref<PurchaseRequestLineInput[]>([]);
-const repairTypeOptions = [
-  { label: 'Плановый ремонт', value: 'planned' },
-  { label: 'Аварийный ремонт', value: 'emergency' }
-];
+const cancelOpen = ref(false);
+const cancelComment = ref('');
+const cancelling = ref(false);
 
 function parseDateOnly(value?: string | null): number | null {
   if (!value) return null;
@@ -69,6 +73,10 @@ function formatDateOnlyDisplay(value?: string | null): string {
 }
 const actingRoleLabel = computed(() => inboxItem.value?.approverRoleLabel ?? '—');
 const editable = computed(() => !!request.value?.canEdit);
+const headerLocked = computed(() => !!request.value?.lockedToDefectAct);
+const headerEditable = computed(() => editable.value && !headerLocked.value);
+const activeLines = computed(() => lines.value.filter((l) => !l.isRemoved));
+const removedLines = computed(() => lines.value.filter((l) => l.isRemoved));
 
 const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
   { title: '#', key: 'lineNo', width: 50 },
@@ -83,58 +91,66 @@ const lineColumns = computed<DataTableColumns<PurchaseRequestLineInput>>(() => [
     title: 'Наименование',
     key: 'name',
     minWidth: 320,
-    render: (row, index) => editable.value
+    render: (row) => headerEditable.value
       ? h(SparePartNameField, {
           modelValue: row.name,
           catalogNumber: row.catalogNumber,
           unit: row.unit,
           vehicleName: request.value?.vehicleName || null,
-          'onUpdate:modelValue': (v: string) => { lines.value[index].name = v; },
-          'onUpdate:catalogNumber': (v: string) => { lines.value[index].catalogNumber = v; },
-          'onUpdate:unit': (v: string) => { lines.value[index].unit = v; }
+          'onUpdate:modelValue': (v: string) => { row.name = v; },
+          'onUpdate:catalogNumber': (v: string) => { row.catalogNumber = v; },
+          'onUpdate:unit': (v: string) => { row.unit = v; }
         })
       : row.name
   },
   {
-    title: 'Кат. №',
+    title: 'Партномер',
     key: 'catalogNumber',
-    render: (row, index) => h(NInput, {
+    render: (row) => h(NInput, {
       value: row.catalogNumber ?? '',
-      disabled: !editable.value,
-      onUpdateValue: (v: string) => { lines.value[index].catalogNumber = v; }
+      maxlength: 50,
+      disabled: !headerEditable.value,
+      onUpdateValue: (v: string) => { row.catalogNumber = v.slice(0, 50); }
     })
   },
   {
     title: 'Кол-во',
     key: 'quantity',
     width: 100,
-    render: (row, index) => h(NInputNumber, {
+    render: (row) => h(NInputNumber, {
       value: row.quantity,
       min: 0,
+      max: headerLocked.value ? row.maxQuantity : undefined,
       disabled: !editable.value,
-      onUpdateValue: (v: number | null) => { lines.value[index].quantity = v ?? 0; }
+      onUpdateValue: (v: number | null) => {
+        const next = v ?? 0;
+        row.quantity = headerLocked.value && row.maxQuantity != null
+          ? Math.min(next, row.maxQuantity)
+          : next;
+      }
     })
   },
   {
     title: 'Ед.',
     key: 'unit',
     width: 80,
-    render: (row, index) => h(NInput, {
+    render: (row) => h(NAutoComplete, {
       value: row.unit ?? '',
-      disabled: !editable.value,
-      onUpdateValue: (v: string) => { lines.value[index].unit = v; }
+      options: unitOptions.map((o) => o.value),
+      disabled: !headerEditable.value,
+      onUpdateValue: (v: string) => { row.unit = v; }
     })
   },
   editable.value ? {
     title: '',
     key: 'actions',
-    width: 60,
-    render: (_row, index) => h(NButton, {
+    width: 90,
+    render: (row) => h(NButton, {
       size: 'small',
       type: 'error',
       tertiary: true,
-      onClick: () => removeLine(index)
-    }, () => '×')
+      onClick: () => removeLine(row)
+    }, () => 'Удалить')
   } : { title: '', key: 'actions', width: 1 }
 ]);
 
@@ -142,7 +158,13 @@ const attachmentColumns: DataTableColumns<AttachmentDto> = [
   {
     title: 'Файл',
     key: 'fileName',
-    render: (r) => h('a', { href: `/api/attachments/${r.id}`, target: '_blank' }, r.fileName)
+    render: (r) => h('a', {
+      href: '#',
+      onClick: (event: Event) => {
+        event.preventDefault();
+        void openAttachment(r.id, r.fileName).catch((e) => msg.error(toApiError(e).detail));
+      }
+    }, r.fileName)
   },
   {
     title: 'Размер',
@@ -159,6 +181,7 @@ const attachmentColumns: DataTableColumns<AttachmentDto> = [
 ];
 
 const approvalColumns: DataTableColumns<ApprovalStepDto> = [
+  { title: 'Запуск', key: 'roundNo', width: 80 },
   { title: 'Шаг', key: 'orderNo', width: 60 },
   {
     title: '',
@@ -185,8 +208,12 @@ function bindRequest(dto: PurchaseRequestDto) {
   request.value = dto;
   description.value = dto.description;
   repairType.value = dto.repairType || 'planned';
+  repairCategory.value = dto.repairCategory || 'current';
+  odometer.value = dto.odometer ?? null;
+  engineHours.value = dto.engineHours ?? null;
   deliveryDate.value = parseDateOnly(dto.deliveryDate);
   lines.value = dto.lines.map((l) => ({
+    id: l.id,
     lineNo: l.lineNo,
     code: l.code,
     name: l.name,
@@ -194,7 +221,10 @@ function bindRequest(dto: PurchaseRequestDto) {
     quantity: l.quantity,
     unit: l.unit,
     estimatedUnitPrice: l.estimatedUnitPrice,
-    notes: undefined
+    notes: l.notes,
+    sourceDefectActPartId: l.sourceDefectActPartId,
+    maxQuantity: l.maxQuantity,
+    isRemoved: l.isRemoved
   }));
 }
 
@@ -210,6 +240,7 @@ async function load() {
       .sort((a, b) => a.orderNo - b.orderNo)[0];
     currentApprovalStepId.value = activeStep?.id ?? null;
     attachments.value = await inventoryApi.listAttachments(id);
+    changes.value = await inventoryApi.getPurchaseChanges(id);
     supplierOrder.value = await inventoryApi.getSupplierOrder(id);
     const inbox = await inventoryApi.getInbox();
     inboxItem.value = inbox.find((x) => x.documentType === 'purchase_request' && x.documentId === id) ?? null;
@@ -222,12 +253,24 @@ async function load() {
 }
 
 function addLine() {
-  lines.value.push({ lineNo: lines.value.length + 1, name: '', quantity: 1, unit: 'шт' });
+  if (headerLocked.value) return;
+  lines.value.push({ lineNo: lines.value.length + 1, name: '', quantity: 1, unit: 'шт.' });
 }
 
-function removeLine(idx: number) {
-  lines.value.splice(idx, 1);
+function removeLine(row: PurchaseRequestLineInput) {
+  if (headerLocked.value) {
+    row.isRemoved = true;
+    return;
+  }
+  const idx = lines.value.indexOf(row);
+  if (idx >= 0) lines.value.splice(idx, 1);
   lines.value.forEach((p, i) => { p.lineNo = i + 1; });
+}
+
+function restoreLine(row: PurchaseRequestLineInput) {
+  row.isRemoved = false;
+  if (row.maxQuantity != null && row.quantity > row.maxQuantity)
+    row.quantity = row.maxQuantity;
 }
 
 async function save() {
@@ -236,19 +279,26 @@ async function save() {
     error.value = 'Укажите описание заявки.';
     return;
   }
-  if (!lines.value.some((l) => l.name.trim())) {
+  if (!lines.value.some((l) => !l.isRemoved && l.name.trim())) {
     error.value = 'Добавьте хотя бы одну позицию.';
     return;
   }
   saving.value = true;
   error.value = '';
   try {
+    const payloadLines = headerLocked.value
+      ? lines.value
+      : lines.value.filter((l) => !l.isRemoved && l.name.trim());
     bindRequest(await inventoryApi.updatePurchaseRequest(request.value.id, {
       repairType: repairType.value,
+      repairCategory: repairCategory.value,
+      odometer: odometer.value ?? undefined,
+      engineHours: engineHours.value ?? undefined,
       description: description.value.trim(),
       deliveryDate: formatDateOnly(deliveryDate.value),
-      lines: lines.value.filter((l) => l.name.trim())
+      lines: payloadLines
     }));
+    changes.value = await inventoryApi.getPurchaseChanges(request.value.id);
     message.value = 'Изменения сохранены';
     msg.success(message.value);
   } catch (e) {
@@ -408,6 +458,25 @@ async function startExecution() {
   }
 }
 
+async function cancelRequest() {
+  if (!request.value || !cancelComment.value.trim()) {
+    msg.warning('Укажите причину аннулирования');
+    return;
+  }
+  cancelling.value = true;
+  try {
+    bindRequest(await inventoryApi.cancelPurchaseRequest(request.value.id, cancelComment.value.trim()));
+    changes.value = await inventoryApi.getPurchaseChanges(request.value.id);
+    cancelOpen.value = false;
+    message.value = 'Заявка аннулирована';
+    msg.success(message.value);
+  } catch (e) {
+    msg.error(toApiError(e).detail);
+  } finally {
+    cancelling.value = false;
+  }
+}
+
 async function closeRequest() {
   if (!request.value) return;
   if (!window.confirm(`Закрыть заявку ${request.value.number}?`)) return;
@@ -438,8 +507,11 @@ async function closeRequest() {
         <div><strong>Техника:</strong> {{ request.vehicleName }}</div>
         <div><strong>Гос. номер:</strong> {{ request.stateNumber || '—' }}</div>
         <div><strong>VIN:</strong> {{ request.vinCode || '—' }}</div>
-        <div><strong>Год:</strong> {{ request.vehicleYear ?? '—' }}</div>
-        <div><strong>Группа:</strong> {{ request.vehicleGroupName || '—' }}</div>
+        <div><strong>Год выпуска:</strong> {{ request.vehicleYear ?? '—' }}</div>
+        <div><strong>Подразделение МОЛ:</strong> {{ request.vehicleGroupName || '—' }}</div>
+        <div><strong>Одометр:</strong> {{ request.odometer ?? '—' }}</div>
+        <div><strong>Моточасы:</strong> {{ request.engineHours ?? '—' }}</div>
+        <div><strong>Категория ремонта:</strong> {{ request.repairCategoryLabel || '—' }}</div>
         <div v-if="request.defectActId && request.defectActNumber">
           <strong>Дефектный акт:</strong>
           <a
@@ -454,7 +526,11 @@ async function closeRequest() {
         <div v-if="!editable"><strong>Дата поставки:</strong> {{ formatDateOnlyDisplay(request.deliveryDate) }}</div>
       </div>
 
-      <div v-if="editable" class="t-grid-2">
+      <NAlert v-if="headerLocked && editable" type="info">
+        Заявка создана из дефектного акта: можно уменьшить количество или исключить позицию. Исключённую позицию можно вернуть.
+      </NAlert>
+
+      <div v-if="headerEditable" class="t-grid-2">
         <NFormItem label="Тип ремонта">
           <NRadioGroup v-model:value="repairType">
             <NSpace>
@@ -464,6 +540,13 @@ async function closeRequest() {
         </NFormItem>
         <NFormItem label="Дата поставки">
           <NDatePicker v-model:value="deliveryDate" type="date" style="width:100%" />
+        </NFormItem>
+        <NFormItem label="Капитальный / текущий ремонт">
+          <NRadioGroup v-model:value="repairCategory">
+            <NSpace>
+              <NRadio v-for="opt in repairCategoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</NRadio>
+            </NSpace>
+          </NRadioGroup>
         </NFormItem>
       </div>
 
@@ -484,15 +567,22 @@ async function closeRequest() {
       </div>
 
       <NFormItem label="Описание / обоснование">
-        <NInput v-model:value="description" type="textarea" :rows="4" :disabled="!editable" />
+        <NInput v-model:value="description" type="textarea" :rows="4" :disabled="!headerEditable" />
       </NFormItem>
 
       <div>
         <h3 style="margin:0 0 12px">Позиции</h3>
         <div class="t-table-wrap">
-          <NDataTable :columns="lineColumns" :data="lines" size="small" :bordered="false" />
+          <NDataTable :columns="lineColumns" :data="activeLines" size="small" :bordered="false" />
         </div>
-        <NButton v-if="editable" secondary style="margin-top:8px" @click="addLine">+ Строка</NButton>
+        <NButton v-if="headerEditable" secondary style="margin-top:8px" @click="addLine">+ Строка</NButton>
+        <div v-if="removedLines.length" style="margin-top:16px">
+          <h4 style="margin:0 0 8px">Исключённые позиции</h4>
+          <div v-for="line in removedLines" :key="line.id ?? line.lineNo" style="display:flex;gap:12px;align-items:center;margin-bottom:6px">
+            <span>{{ line.name }} — {{ line.maxQuantity ?? line.quantity }} {{ line.unit }}</span>
+            <NButton v-if="editable" size="small" secondary @click="restoreLine(line)">Вернуть</NButton>
+          </div>
+        </div>
       </div>
 
       <div>
@@ -539,6 +629,9 @@ async function closeRequest() {
         >
           Удалить черновик
         </NButton>
+        <NButton v-if="request.canCancel" type="error" secondary @click="cancelOpen = true; cancelComment = ''">
+          Аннулировать
+        </NButton>
         <NButton v-if="request.status === 'in_progress'" type="primary" @click="createOrder">
           Сформировать заказ поставщику
         </NButton>
@@ -550,6 +643,22 @@ async function closeRequest() {
         <p v-if="supplierOrder.externalSystemRef" style="color:var(--brand-text-muted);margin:4px 0 0">
           Внешний ID: {{ supplierOrder.externalSystemRef }}
         </p>
+      </div>
+
+      <div v-if="changes.length">
+        <h3 style="margin:0 0 12px">Журнал изменений</h3>
+        <div class="t-table-wrap">
+          <NDataTable
+            :columns="[
+              { title: 'Дата', key: 'createdAt', render: (r: DocumentChangeDto) => new Date(r.createdAt).toLocaleString('ru-RU') },
+              { title: 'Кто', key: 'userFullName' },
+              { title: 'Событие', key: 'summary' }
+            ]"
+            :data="changes"
+            size="small"
+            :bordered="false"
+          />
+        </div>
       </div>
 
       <div v-if="approvals.length">
@@ -574,12 +683,23 @@ async function closeRequest() {
         <NFormItem label="Роль">
           <NInput :value="actingRoleLabel" readonly />
         </NFormItem>
-        <NFormItem label="Комментарий">
-          <NInput v-model:value="decisionComment" type="textarea" :rows="4" />
+        <NFormItem :label="decisionKind === 'approve' ? 'Комментарий (необязательно)' : 'Комментарий'">
+          <NInput v-model:value="decisionComment" type="textarea" :rows="4" placeholder="Комментарий к решению" />
         </NFormItem>
         <NSpace justify="end">
           <NButton @click="decisionModalOpen = false">Отмена</NButton>
           <NButton type="primary" :loading="decisionSubmitting" @click="applyDecision">Подтвердить</NButton>
+        </NSpace>
+      </NCard>
+    </NModal>
+    <NModal v-model:show="cancelOpen">
+      <NCard style="max-width:560px;margin:80px auto 0;" title="Аннулировать заявку" :bordered="false">
+        <NFormItem label="Причина">
+          <NInput v-model:value="cancelComment" type="textarea" :rows="4" />
+        </NFormItem>
+        <NSpace justify="end">
+          <NButton @click="cancelOpen = false">Отмена</NButton>
+          <NButton type="error" :loading="cancelling" @click="cancelRequest">Аннулировать</NButton>
         </NSpace>
       </NCard>
     </NModal>

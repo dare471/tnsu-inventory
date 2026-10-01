@@ -5,6 +5,7 @@ using Tnsu.Inventory.Application.Common.Exceptions;
 using Tnsu.Inventory.Application.Common.Interfaces;
 using Tnsu.Inventory.Application.DefectActs;
 using Tnsu.Inventory.Application.PurchaseRequests;
+using Tnsu.Inventory.Application.Workflow;
 using Tnsu.Inventory.Domain;
 using Tnsu.Inventory.Domain.Entities;
 using Tnsu.Inventory.Domain.Enums;
@@ -23,14 +24,22 @@ internal static class DefectActMapper
 
         var canEdit = act.Status is WorkflowStatus.Draft or WorkflowStatus.Returned
                       && currentUser.UserId == act.CreatedByUserId;
-        var hasPhoto = await db.Attachments.AsNoTracking().AnyAsync(
-            a => a.DefectActId == act.Id && a.Category == AttachmentCategories.DefectPhoto, ct);
-        var canSubmit = canEdit
-                        && !string.IsNullOrWhiteSpace(act.MalfunctionDescription)
-                        && hasPhoto;
-        var canCreatePurchase = act.Status is WorkflowStatus.Approved or WorkflowStatus.Signed;
+        var canSubmit = canEdit && !string.IsNullOrWhiteSpace(act.MalfunctionDescription);
+        var activePurchase = await db.PurchaseRequests.AsNoTracking().AnyAsync(
+            r => r.DefectActId == act.Id && r.Status != WorkflowStatus.Cancelled, ct);
+        var canCreatePurchase = act.Status is WorkflowStatus.Approved or WorkflowStatus.Signed
+                                && !activePurchase
+                                && currentUser.UserId == act.CreatedByUserId;
         var canDelete = act.Status == WorkflowStatus.Draft
                         && currentUser.UserId == act.CreatedByUserId;
+        var canEditStock = currentUser.Role == MechanizationRole.ProjectStorekeeper
+                           && await db.ApprovalSteps.AsNoTracking().AnyAsync(s =>
+                               s.DefectActId == act.Id
+                               && s.ApproverUserId == currentUser.UserId
+                               && s.ApproverRole == MechanizationRole.ProjectStorekeeper
+                               && s.Status == ApprovalStepStatus.Pending
+                               && s.AssignedAt != null
+                               && s.DecidedAt == null, ct);
 
         return new DefectActDto(
             act.Id,
@@ -48,16 +57,21 @@ internal static class DefectActMapper
             act.VehicleYear,
             act.RepairType,
             RepairType.Label(act.RepairType),
+            act.RepairCategory,
+            RepairCategory.Label(act.RepairCategory),
+            act.Odometer,
+            act.EngineHours,
             act.MalfunctionDescription,
             act.CreatedBy?.FullName ?? "—",
             act.CreatedAt,
             act.SignedAt,
             act.Parts.OrderBy(p => p.LineNo).Select(p => new DefectActPartDto(
-                p.Id, p.LineNo, p.Name, p.CatalogNumber, p.Quantity, p.Unit, p.Notes)).ToList(),
+                p.Id, p.LineNo, p.Name, p.CatalogNumber, p.Quantity, p.Unit, p.Notes, p.ActualStockQuantity)).ToList(),
             canEdit,
             canSubmit,
             canCreatePurchase,
-            canDelete);
+            canDelete,
+            canEditStock);
     }
 }
 
@@ -79,7 +93,7 @@ public sealed class ListDefectActsHandler(IInventoryDbContext db, ICurrentUser c
     {
         var query = db.DefectActs.AsNoTracking();
 
-        if (!DocumentListScope.IsGlobalAdmin(currentUser))
+        if (!DocumentListScope.CanViewAllDefectActs(currentUser))
         {
             var userId = currentUser.UserId ?? throw new UnauthorizedException();
             var participantIds = await db.ApprovalSteps.AsNoTracking()
@@ -113,15 +127,11 @@ public sealed class GetDefectActApprovalsHandler(IInventoryDbContext db)
 {
     public async Task<IReadOnlyList<ApprovalStepDto>> Handle(GetDefectActApprovalsQuery q, CancellationToken ct)
     {
-        return await db.ApprovalSteps.AsNoTracking()
+        var steps = await db.ApprovalSteps.AsNoTracking()
             .Include(s => s.Approver)
             .Where(s => s.DefectActId == q.Id)
-            .OrderBy(s => s.OrderNo)
-            .Select(s => new ApprovalStepDto(
-                s.Id, s.OrderNo, s.ApproverRole, MechanizationRole.Label(s.ApproverRole),
-                s.Approver!.FullName, s.Status, ApprovalStepStatus.Label(s.Status), s.Action, s.Comment,
-                s.RequiresDigitalSignature, s.AssignedAt, s.DecidedAt, s.DecidedAt ?? s.AssignedAt))
             .ToListAsync(ct);
+        return ApprovalRoundMapper.ToDtos(steps);
     }
 }
 
@@ -137,11 +147,21 @@ public sealed class CreatePurchaseFromDefectActHandler(IInventoryDbContext db, I
             .FirstOrDefaultAsync(a => a.Id == cmd.DefectActId, ct)
             ?? throw new NotFoundException("DefectAct", cmd.DefectActId);
 
+        if (currentUser.UserId != act.CreatedByUserId)
+            throw new ForbiddenException("Заявку из дефектного акта создаёт автор акта.");
+
         if (act.Status is not WorkflowStatus.Approved and not WorkflowStatus.Signed)
             throw new ConflictException("not_approved", "Сначала завершите согласование дефектного акта.");
 
+        var already = await db.PurchaseRequests.AnyAsync(
+            r => r.DefectActId == act.Id && r.Status != WorkflowStatus.Cancelled, ct);
+        if (already)
+            throw new ConflictException("purchase_exists", "По этому дефектному акту уже есть заявка на закуп.");
+
         var lines = act.Parts.OrderBy(p => p.LineNo).Select(p =>
-            new PurchaseRequestLineInput(p.LineNo, p.Name, p.CatalogNumber, p.Quantity, p.Unit, null, p.Notes)).ToList();
+            new PurchaseRequestLineInput(
+                p.LineNo, p.Name, p.CatalogNumber, p.Quantity, p.Unit, null, p.Notes,
+                null, p.Id, false)).ToList();
 
         return await mediator.Send(new PurchaseRequests.Commands.CreatePurchaseRequestCommand(
             new CreatePurchaseRequestRequest(
@@ -156,6 +176,9 @@ public sealed class CreatePurchaseFromDefectActHandler(IInventoryDbContext db, I
                 act.VinCode,
                 act.VehicleYear,
                 act.RepairType,
+                act.RepairCategory,
+                act.Odometer,
+                act.EngineHours,
                 act.MalfunctionDescription,
                 null,
                 lines)), ct);

@@ -4,6 +4,7 @@ public static class DocumentTypes
 {
     public const string DefectAct = "defect_act";
     public const string PurchaseRequest = "purchase_request";
+    public const string MaterialTransfer = "material_transfer";
 }
 
 public static class AttachmentCategories

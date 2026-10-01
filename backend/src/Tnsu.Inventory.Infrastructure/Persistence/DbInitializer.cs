@@ -112,6 +112,94 @@ public static class DbInitializer
             SET "DeliveryDate" = ("CreatedAt" AT TIME ZONE 'UTC')::date + INTERVAL '30 days'
             WHERE "DeliveryDate" IS NULL;
             """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE defect_acts
+            ADD COLUMN IF NOT EXISTS "RepairCategory" character varying(32) NOT NULL DEFAULT 'current';
+            ALTER TABLE defect_acts
+            ADD COLUMN IF NOT EXISTS "Odometer" numeric(14,2) NULL;
+            ALTER TABLE defect_acts
+            ADD COLUMN IF NOT EXISTS "EngineHours" numeric(14,2) NULL;
+            ALTER TABLE defect_act_parts
+            ADD COLUMN IF NOT EXISTS "ActualStockQuantity" numeric(18,3) NULL;
+            ALTER TABLE purchase_requests
+            ADD COLUMN IF NOT EXISTS "RepairCategory" character varying(32) NOT NULL DEFAULT 'current';
+            ALTER TABLE purchase_requests
+            ADD COLUMN IF NOT EXISTS "Odometer" numeric(14,2) NULL;
+            ALTER TABLE purchase_requests
+            ADD COLUMN IF NOT EXISTS "EngineHours" numeric(14,2) NULL;
+            ALTER TABLE purchase_request_lines
+            ADD COLUMN IF NOT EXISTS "SourceDefectActPartId" uuid NULL;
+            ALTER TABLE purchase_request_lines
+            ADD COLUMN IF NOT EXISTS "MaxQuantity" numeric(18,3) NULL;
+            ALTER TABLE purchase_request_lines
+            ADD COLUMN IF NOT EXISTS "IsRemoved" boolean NOT NULL DEFAULT false;
+            ALTER TABLE purchase_request_lines
+            ADD COLUMN IF NOT EXISTS "RemovedAt" timestamp with time zone NULL;
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM purchase_requests
+                    WHERE "DefectActId" IS NOT NULL AND "Status" <> 'cancelled'
+                    GROUP BY "DefectActId"
+                    HAVING COUNT(*) > 1
+                ) THEN
+                    CREATE UNIQUE INDEX IF NOT EXISTS "IX_purchase_requests_DefectActId_active"
+                    ON purchase_requests ("DefectActId")
+                    WHERE "DefectActId" IS NOT NULL AND "Status" <> 'cancelled';
+                END IF;
+            END $$;
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS document_changes (
+                "Id" uuid PRIMARY KEY,
+                "DocumentType" character varying(64) NOT NULL,
+                "DocumentId" uuid NOT NULL,
+                "UserId" uuid NULL,
+                "UserFullName" character varying(256) NOT NULL DEFAULT '',
+                "Action" character varying(64) NOT NULL,
+                "Summary" character varying(2000) NOT NULL DEFAULT '',
+                "CreatedAt" timestamp with time zone NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_document_changes_Document"
+            ON document_changes ("DocumentType", "DocumentId", "CreatedAt");
+            """, ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS material_transfers (
+                "Id" uuid PRIMARY KEY,
+                "Number" character varying(32) NOT NULL,
+                "CreatedByUserId" uuid NOT NULL,
+                "Status" character varying(32) NOT NULL,
+                "SourceWarehouse" character varying(256) NOT NULL DEFAULT '',
+                "Destination" character varying(256) NOT NULL DEFAULT '',
+                "Comment" text NULL,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_material_transfers_Number"
+            ON material_transfers ("Number");
+            CREATE TABLE IF NOT EXISTS material_transfer_lines (
+                "Id" uuid PRIMARY KEY,
+                "TransferRequestId" uuid NOT NULL,
+                "LineNo" integer NOT NULL,
+                "Code" character varying(64) NOT NULL DEFAULT '',
+                "Name" character varying(512) NOT NULL DEFAULT '',
+                "CatalogNumber" character varying(50) NULL,
+                "Quantity" numeric(18,3) NOT NULL,
+                "Unit" character varying(32) NOT NULL DEFAULT 'шт.',
+                "AvailableQuantity" numeric(18,3) NULL
+            );
+            """, ct);
     }
 
     private static async Task EnsureEntraUsersAsync(InventoryDbContext db, CancellationToken ct)

@@ -13,6 +13,10 @@ public class PurchaseRequestLine
     public decimal? EstimatedUnitPrice { get; set; }
     public decimal? EstimatedAmount { get; set; }
     public string? Notes { get; set; }
+    public Guid? SourceDefectActPartId { get; set; }
+    public decimal? MaxQuantity { get; set; }
+    public bool IsRemoved { get; set; }
+    public DateTimeOffset? RemovedAt { get; set; }
 
     public PurchaseRequest? PurchaseRequest { get; set; }
 }

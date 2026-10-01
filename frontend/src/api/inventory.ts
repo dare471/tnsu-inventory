@@ -71,6 +71,24 @@ export const inventoryApi = {
     apiClient.get<AdminUserOptionDto[]>('/api/dictionaries/executors').then((r) => r.data),
   deleteDefectAct: (id: string) => apiClient.delete(`/api/defect-acts/${id}`),
   deletePurchaseRequest: (id: string) => apiClient.delete(`/api/purchase-requests/${id}`),
+  cancelPurchaseRequest: (id: string, comment: string) =>
+    apiClient.post<PurchaseRequestDto>(`/api/purchase-requests/${id}/cancel`, { comment }).then((r) => r.data),
+  getPurchaseChanges: (id: string) =>
+    apiClient.get<DocumentChangeDto[]>(`/api/purchase-requests/${id}/changes`).then((r) => r.data),
+  updateDefectStock: (id: string, parts: Array<{ partId: string; actualStockQuantity: number | null }>) =>
+    apiClient.put<DefectActDto>(`/api/defect-acts/${id}/stock`, { parts }).then((r) => r.data),
+  searchStock: (search?: string) =>
+    apiClient
+      .get<StockBalanceDto[]>(`/api/dictionaries/stock-balances${search ? `?search=${encodeURIComponent(search)}` : ''}`)
+      .then((r) => r.data),
+  listTransfers: () => apiClient.get<MaterialTransferDto[]>('/api/material-transfers').then((r) => r.data),
+  getTransfer: (id: string) => apiClient.get<MaterialTransferDto>(`/api/material-transfers/${id}`).then((r) => r.data),
+  createTransfer: (body: SaveMaterialTransferRequest) =>
+    apiClient.post<MaterialTransferDto>('/api/material-transfers', body).then((r) => r.data),
+  updateTransfer: (id: string, body: SaveMaterialTransferRequest) =>
+    apiClient.put<MaterialTransferDto>(`/api/material-transfers/${id}`, body).then((r) => r.data),
+  submitTransfer: (id: string) =>
+    apiClient.post<MaterialTransferDto>(`/api/material-transfers/${id}/submit`).then((r) => r.data),
   assignExecutor: (id: string, executorUserId: string) =>
     apiClient
       .post<PurchaseRequestDto>(`/api/purchase-requests/${id}/assign-executor`, { executorUserId })
@@ -146,15 +164,20 @@ export interface VehicleDto {
 export interface DefectActPartInput {
   lineNo: number; name: string; catalogNumber?: string;
   quantity: number; unit?: string; notes?: string;
+  actualStockQuantity?: number | null;
 }
 export interface CreateDefectActRequest {
   projectId: string; projectCode: string; projectName: string;
   vehicleId: string; vehicleName: string; vehicleGroupName: string;
   stateNumber: string; vinCode: string; vehicleYear?: number;
-  repairType: string; malfunctionDescription: string; parts: DefectActPartInput[];
+  repairType: string; repairCategory: string;
+  odometer?: number; engineHours?: number;
+  malfunctionDescription: string; parts: DefectActPartInput[];
 }
 export interface UpdateDefectActRequest {
-  repairType: string; malfunctionDescription: string; parts: DefectActPartInput[];
+  repairType: string; repairCategory: string;
+  odometer?: number; engineHours?: number;
+  malfunctionDescription: string; parts: DefectActPartInput[];
 }
 export interface DefectActListItem {
   id: string; number: string; status: string; statusLabel: string;
@@ -165,23 +188,31 @@ export interface DefectActDto extends DefectActListItem {
   projectId: string; projectCode: string; vehicleId: string;
   vehicleGroupName: string; vinCode: string; vehicleYear?: number;
   repairType: string; repairTypeLabel: string;
+  repairCategory: string; repairCategoryLabel: string;
+  odometer?: number; engineHours?: number;
   malfunctionDescription: string; createdByFullName: string; signedAt?: string;
-  parts: Array<{ id: string; lineNo: number; name: string; catalogNumber?: string; quantity: number; unit?: string; notes?: string }>;
+  parts: Array<{ id: string; lineNo: number; name: string; catalogNumber?: string; quantity: number; unit?: string; notes?: string; actualStockQuantity?: number | null }>;
   canEdit: boolean; canSubmit: boolean; canCreatePurchaseRequest: boolean; canDelete: boolean;
+  canEditStock: boolean;
 }
 export interface PurchaseRequestLineInput {
-  lineNo: number; code?: string; name: string; catalogNumber?: string;
+  id?: string; lineNo: number; code?: string; name: string; catalogNumber?: string;
   quantity: number; unit?: string; estimatedUnitPrice?: number; notes?: string;
+  sourceDefectActPartId?: string; maxQuantity?: number; isRemoved?: boolean;
 }
 export interface CreatePurchaseRequestRequest {
   defectActId?: string; projectId: string; projectCode: string; projectName: string;
   vehicleId: string; vehicleName: string; vehicleGroupName: string;
   stateNumber: string; vinCode: string;
-  vehicleYear?: number; repairType: string; description: string;
+  vehicleYear?: number; repairType: string; repairCategory: string;
+  odometer?: number; engineHours?: number;
+  description: string;
   deliveryDate?: string; lines: PurchaseRequestLineInput[];
 }
 export interface UpdatePurchaseRequestRequest {
-  repairType: string; description: string; deliveryDate?: string; lines: PurchaseRequestLineInput[];
+  repairType: string; repairCategory: string;
+  odometer?: number; engineHours?: number;
+  description: string; deliveryDate?: string; lines: PurchaseRequestLineInput[];
 }
 export interface PurchaseRequestListItem {
   id: string; number: string; status: string; statusLabel: string;
@@ -197,11 +228,34 @@ export interface PurchaseRequestDto extends PurchaseRequestListItem {
   vehicleGroupName: string;
   stateNumber: string; vinCode: string; vehicleYear?: number;
   repairType: string; repairTypeLabel: string;
+  repairCategory: string; repairCategoryLabel: string;
+  odometer?: number; engineHours?: number;
   description: string; hasServiceNoteAttachment: boolean;
   createdByFullName: string; assignedExecutorFullName?: string;
-  lines: Array<{ id: string; lineNo: number; code: string; name: string; catalogNumber?: string; quantity: number; unit?: string; estimatedUnitPrice?: number; estimatedAmount?: number; notes?: string }>;
+  lines: Array<{ id: string; lineNo: number; code: string; name: string; catalogNumber?: string; quantity: number; unit?: string; estimatedUnitPrice?: number; estimatedAmount?: number; notes?: string; sourceDefectActPartId?: string; maxQuantity?: number; isRemoved: boolean }>;
   canEdit: boolean; canSubmit: boolean; canCancel: boolean; canDelete: boolean;
   canAssignExecutor?: boolean; canStartExecution?: boolean; canClose?: boolean;
+  lockedToDefectAct: boolean;
+}
+export interface DocumentChangeDto {
+  id: string; action: string; summary: string; userFullName: string; createdAt: string;
+}
+export interface StockBalanceDto {
+  id: string; code: string; name: string; unit?: string; quantity?: number | null; warehouse: string;
+}
+export interface MaterialTransferLineInput {
+  lineNo: number; code: string; name: string; catalogNumber?: string;
+  quantity: number; unit: string; availableQuantity?: number | null;
+}
+export interface SaveMaterialTransferRequest {
+  sourceWarehouse: string; destination: string; comment?: string;
+  lines: MaterialTransferLineInput[];
+}
+export interface MaterialTransferDto {
+  id: string; number: string; status: string; statusLabel: string;
+  sourceWarehouse: string; destination: string; comment?: string;
+  createdByFullName: string; createdAt: string; canEdit: boolean;
+  lines: MaterialTransferLineInput[];
 }
 export interface InboxItem {
   stepId: string; documentType: string; documentId: string;
@@ -212,6 +266,7 @@ export interface ApprovalStepDto {
   id: string; orderNo: number; approverRoleLabel: string;
   approverFullName: string; status: string; statusLabel: string; action?: string;
   comment?: string; assignedAt?: string; decidedAt?: string; statusDate?: string;
+  roundNo?: number;
 }
 export interface ProjectSectionDto { id: string; projectId: string; code: string; name: string }
 export interface WorkTypeDto { id: string; code: string; name: string }

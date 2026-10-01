@@ -9,6 +9,10 @@ const namedRoutes: RouteRecordRaw[] = [
   { path: 'purchase-requests', name: 'purchase-requests', component: () => import('@/views/PurchaseRequestsView.vue') },
   { path: 'purchase-requests/new', name: 'purchase-request-new', component: () => import('@/views/PurchaseRequestFormView.vue') },
   { path: 'purchase-requests/:id', name: 'purchase-request-detail', component: () => import('@/views/PurchaseRequestDetailView.vue') },
+  { path: 'stock-balances', name: 'stock-balances', component: () => import('@/views/StockBalancesView.vue') },
+  { path: 'material-transfers', name: 'material-transfers', component: () => import('@/views/MaterialTransfersView.vue') },
+  { path: 'material-transfers/new', name: 'transfer-new', component: () => import('@/views/MaterialTransferFormView.vue') },
+  { path: 'material-transfers/:id', name: 'transfer-detail', component: () => import('@/views/MaterialTransferFormView.vue') },
   { path: 'inbox', name: 'inbox', component: () => import('@/views/InboxView.vue') },
   { path: 'admin/users', name: 'admin-users', component: () => import('@/views/AdminUsersView.vue') }
 ];
